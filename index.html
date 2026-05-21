@@ -236,7 +236,7 @@
             });
         }
 
-        function validatePass(val) { const btn = document.getElementById('enterBtn'); if (val === '邱天' || val === '1314') btn.classList.add('visible'); else btn.classList.remove('visible'); }
+        function validatePass(val) { const btn = document.getElementById('enterBtn'); if (val === '邱天' || val === '1204') btn.classList.add('visible'); else btn.classList.remove('visible'); }
         function grantAccess() { document.getElementById('passcodeOverlay').style.opacity = '0'; setTimeout(() => { document.getElementById('passcodeOverlay').style.display = 'none'; startSite(); fetchDiaries(); }, 800); }
         function toggleMusic() { const m = document.getElementById('bgMusic'); m.muted = false; if (m.paused) { m.play(); document.getElementById('musicToggle').classList.add('playing'); } else { m.pause(); document.getElementById('musicToggle').classList.remove('playing'); } }
 
