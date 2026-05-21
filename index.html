@@ -47,7 +47,7 @@
         textarea { width: 100%; background: transparent; border: none; color: white; font-size: 1.15rem; resize: none; outline: none; min-height: 80px; line-height: 1.6; box-sizing: border-box; scrollbar-width: none; }
         textarea::-webkit-scrollbar { display: none; }
 
-        /* 🔴 新增：上传多图的迷你预览九宫格 */
+        /* 多图选定后的微型预览九宫格 */
         #imagePreviewContainer { display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; max-width: 260px; }
         .preview-mini-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--autumn-gold); }
 
@@ -57,24 +57,24 @@
         .photo-btn { font-size: 1.35rem; cursor: pointer; opacity: 0.9; margin: 0; }
         button#publishBtn { background: var(--autumn-gold); border: none; padding: 8px 16px; border-radius: 25px; cursor: pointer; font-weight: bold; color: #1c2b23; transition: 0.3s; }
 
-        /* 日志列表 */
+        /* 日志列表卡片 */
         #diary-list { width: 100%; max-width: 500px; z-index: 1; padding-bottom: 50px; box-sizing: border-box; }
         .diary-item { background: var(--card-bg); padding: 12px 18px !important; border-radius: 15px; margin-bottom: 15px; border: 1px solid var(--card-border); border-left: 5px solid var(--autumn-gold) !important; backdrop-filter: blur(5px); position: relative; width: 100%; box-sizing: border-box; text-align: left; }
         
         .diary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .diary-text { text-align: left !important; line-height: 1.6; white-space: pre-wrap; font-size: 1rem; word-break: break-word; color: white; margin: 0; padding: 0; }
         
-        /* 🔴 优化：单张大图与九宫格多图样式 */
+        /* 智能图片排版：单张大图与多张九宫格 */
         .diary-image-single { width: 100%; max-width: 350px; border-radius: 10px; margin-top: 12px; cursor: zoom-in; display: block; border: 1px solid rgba(255,255,255,0.1); }
         .diary-image-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; max-width: 360px; }
         .diary-grid-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: zoom-in; transition: 0.2s; }
         .diary-grid-img:hover { opacity: 0.8; }
 
-        /* 无外框原位编辑 */
+        /* 原位修改编辑框 */
         .inline-edit-author { width: 55px; background: transparent; border: none; color: var(--autumn-gold); font-weight: bold; font-size: 0.75rem; outline: none; margin-right: 8px; padding: 0; }
         .inline-edit-area { width: 100%; background: transparent !important; border: none !important; color: white; font-size: 1rem; line-height: 1.6; outline: none; resize: none; margin-bottom: 5px; box-shadow: none !important; }
         
-        /* 回复留言 */
+        /* 评论区样式 */
         .replies-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
         .reply-item { font-size: 0.9rem; color: #8da399; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
         .reply-content { flex: 1; border-left: 2px solid rgba(255,179,71,0.4); padding-left: 10px; line-height: 1.4; }
@@ -171,7 +171,6 @@
         let currentMood = 'gold';
         const moodColors = { gold: '#ffb347', pink: '#ff85a1', blue: '#70a1ff' };
         
-        // 🔴 修改：从单个文件变量变成文件数组
         let selectedFiles = []; 
         let globalDiaries = [];
         let confirmAction = null;
@@ -184,7 +183,6 @@
         function closeImageOverlay() { document.getElementById('imageOverlay').style.display = 'none'; }
         function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
         
-        // 🔴 修改：处理多张照片的预览逻辑
         function handleFile(input) { 
             const files = Array.from(input.files); 
             if (files.length > 9) {
@@ -229,7 +227,7 @@
                 const isLocked = item.is_capsule && now < unlockAt;
                 let timeTip = isLocked ? ` (⏳ ${Math.floor((unlockAt-now)/3600000)}时${Math.floor(((unlockAt-now)%3600000)/60000)}分后开启)` : '';
                 
-                // 🔴 修改：智能九宫格渲染逻辑
+                // 核心：智能识别单图与多图九宫格渲染
                 let imgHtml = '';
                 if (!isLocked && item.image_url) {
                     const urls = item.image_url.split(',').filter(url => url.trim() !== '');
@@ -324,7 +322,7 @@
         function closeConfirmModal() { document.getElementById('customConfirm').classList.remove('show'); setTimeout(() => { document.getElementById('customConfirm').style.display = 'none'; }, 300); }
         document.getElementById('confirmYesBtn').onclick = () => confirmAction();
 
-        // 🔴 修改：多图循环顺序上传并合并路径功能
+        // 串行多图上传合并路径
         async function publishEntry() {
             const content = document.getElementById('diaryInput').value.trim();
             const author = document.getElementById('authorName').value.trim() || '匿名';
@@ -337,7 +335,6 @@
 
             try {
                 let uploadedUrls = [];
-                // 循环上传每一张选中的图片
                 if (selectedFiles.length > 0) {
                     for (let i = 0; i < selectedFiles.length; i++) {
                         const file = selectedFiles[i];
@@ -354,15 +351,12 @@
                     }
                 }
 
-                // 将多张图片的 URL 用逗号连接在一起存入数据库
                 const finalUrlsString = uploadedUrls.join(',');
-                
                 const payload = { content, author, mood: currentMood, is_capsule: isCapsule, image_url: finalUrlsString || null };
                 if (isCapsule && unlockAt) payload.unlock_at = new Date(unlockAt).toISOString();
                 
                 await supabaseClient.from('ForestLog').insert([payload]);
                 
-                // 清空输入和预览状态
                 document.getElementById('diaryInput').value = ''; 
                 document.getElementById('imagePreviewContainer').innerHTML = '';
                 document.getElementById('imagePreviewContainer').style.display = 'none';
