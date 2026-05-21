@@ -1,1 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>林间的邱天</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --forest-bg: #1c2b23;
+            --forest-dark: #8ED973; 
+            --forest-text: #8da399;
+            --autumn-gold: #ffb347;
+            --love-pink: #ff85a1;
+            --tired-blue: #70a1ff;
+            --card-bg: rgba(255, 255, 255, 0.1); 
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
 
+        body {
+            margin: 0; background-color: var(--forest-bg); color: white;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 0 20px; overflow-x: hidden;
+        }
+
+        #musicToggle { position: fixed; top: 20px; right: 20px; z-index: 1100; cursor: pointer; font-size: 1.6rem; }
+        #musicToggle.playing { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+        #heart-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .heart { position: absolute; filter: drop-shadow(0 0 8px rgba(255,179,71,0.4)); animation: fall linear infinite; top: -50px; }
+        @keyframes fall { 0% { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0; } 10% { opacity: 0.8; } 100% { transform: translateY(110vh) rotate(360deg) scale(1.2); opacity: 0; } }
+
+        #imageOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: center; z-index: 4000; cursor: zoom-out; }
+        #fullImage { max-width: 90%; max-height: 90%; border-radius: 12px; }
+
+        header { text-align: center; margin-top: 80px; margin-bottom: 25px; z-index: 1; }
+        .forest-text { font-size: 1.4rem; color: var(--forest-dark); font-weight: bold; margin-bottom: 8px; }
+        .autumn-text { font-size: 1.8rem; color: var(--autumn-gold); font-weight: bold; }
+
+        /* 发布区 */
+        .input-section { width: 100%; max-width: 500px; background: var(--card-bg); padding: 15px 20px; border-radius: 20px; margin-bottom: 25px; border: 1px solid var(--card-border); z-index: 1; backdrop-filter: blur(15px); box-sizing: border-box; }
+        textarea { width: 100%; background: transparent; border: none; color: white; font-size: 1.15rem; resize: none; outline: none; min-height: 80px; line-height: 1.6; box-sizing: border-box; scrollbar-width: none; }
+        textarea::-webkit-scrollbar { display: none; }
+
+        /* 预览区：多图横排 + 小叉号 */
+        #imagePreviewContainer { display: none; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+        .preview-wrapper { position: relative; display: inline-block; }
+        .preview-mini-img { width: 65px; height: 65px; object-fit: cover; border-radius: 8px; border: 1px solid var(--autumn-gold); }
+        .preview-delete-btn { position: absolute; top: -6px; right: -6px; background: #ff5e5e; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold; }
+
+        .author-input { background: rgba(255,255,255,0.08); border: 1px solid #444; color: #eee; border-radius: 12px; padding: 6px 12px; width: 65px; font-size: 0.9rem; outline: none; }
+        
+        .control-right { display: flex; align-items: center; gap: 12px; }
+        .photo-btn { font-size: 1.35rem; cursor: pointer; opacity: 0.9; margin: 0; }
+        button#publishBtn { background: var(--autumn-gold); border: none; padding: 8px 16px; border-radius: 25px; cursor: pointer; font-weight: bold; color: #1c2b23; transition: 0.3s; }
+
+        /* 日志卡片 */
+        #diary-list { width: 100%; max-width: 500px; z-index: 1; padding-bottom: 50px; box-sizing: border-box; }
+        .diary-item { background: var(--card-bg); padding: 12px 18px !important; border-radius: 15px; margin-bottom: 15px; border: 1px solid var(--card-border); border-left: 5px solid var(--autumn-gold) !important; backdrop-filter: blur(5px); position: relative; width: 100%; box-sizing: border-box; text-align: left; }
+        
+        .diary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .diary-text { text-align: left !important; line-height: 1.6; white-space: pre-wrap; font-size: 1rem; word-break: break-word; color: white; margin: 0; padding: 0; }
+        
+        /* 智能图片排版：单张大图与多张九宫格 */
+        .diary-image-single { width: 100%; max-width: 350px; border-radius: 10px; margin-top: 12px; cursor: zoom-in; display: block; border: 1px solid rgba(255,255,255,0.1); }
+        .diary-image-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; max-width: 360px; }
+        .diary-grid-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: zoom-in; transition: 0.2s; }
+        .diary-grid-img:hover { opacity: 0.8; }
+
+        .inline-edit-author { width: 55px; background: transparent; border: none; color: var(--autumn-gold); font-weight: bold; font-size: 0.75rem; outline: none; margin-right: 8px; padding: 0; }
+        .inline-edit-area { width: 100%; background: transparent !important; border: none !important; color: white; font-size: 1rem; line-height: 1.6; outline: none; resize: none; margin-bottom: 5px; box-shadow: none !important; }
+        
+        .replies-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .reply-item { font-size: 0.9rem; color: #8da399; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .reply-content { flex: 1; border-left: 2px solid rgba(255,179,71,0.4); padding-left: 10px; line-height: 1.4; }
+
+        .reply-input-box { display: none; margin-top: 12px; gap: 8px; align-items: center; background: rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }
+        .reply-name-field { width: 55px; background: transparent; border: none; border-right: 1px solid #444; color: var(--autumn-gold); font-weight: bold; font-size: 0.9rem; outline: none; padding-right: 5px; }
+        .reply-field { flex: 1; background: transparent; border: none; color: white; font-size: 0.9rem; outline: none; padding-left: 5px; }
+
+        .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+        .btn-mini-save { background: var(--autumn-gold); border: none; padding: 4px 15px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; font-weight: bold; color: #1c2b23; }
+        .btn-mini-cancel { background: rgba(255,255,255,0.1); border: none; color: #ccc; padding: 4px 15px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; }
+
+        .actions { display: flex; gap: 12px; align-items: center; }
+        .action-btn { background: none; border: none; color: var(--forest-text); cursor: pointer; opacity: 0.6; font-size: 1.05rem; }
+
+        #passcodeOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--forest-bg); z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.8s; }
+        #enterBtn { margin-top: 25px; padding: 10px 40px; background: var(--autumn-gold); border: none; border-radius: 25px; cursor: pointer; font-weight: bold; opacity: 0; transform: translateY(10px); pointer-events: none; transition: 0.3s; }
+        #enterBtn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+        #customConfirm { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(28, 43, 35, 0.7); z-index: 3000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; }
+        #customConfirm.show { opacity: 1; pointer-events: auto; }
+        .confirm-box { background: #2a3d33; padding: 25px 35px; border-radius: 20px; border: 1px solid var(--card-border); backdrop-filter: blur(20px); text-align: center; }
+        .confirm-text { color: white; font-size: 1.1rem; margin-bottom: 25px; }
+        .btn-cancel { background: rgba(255,255,255,0.1); border: none; color: #ccc; padding: 8px 20px; border-radius: 25px; cursor: pointer; }
+        .btn-delete { background: #ff5e5e; border: none; color: white; padding: 8px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+
+        @media (max-width: 600px) { .input-section, #diary-list { width: 92%; } }
+    </style>
+</head>
+<body>
+
+    <div id="musicToggle" onclick="toggleMusic()">🎵</div>
+    <audio id="bgMusic" loop preload="auto" muted><source src="./Love.mp3" type="audio/mpeg"></audio>
+
+    <div id="imageOverlay" onclick="closeImageOverlay()"><img id="fullImage"></div>
+
+    <div id="passcodeOverlay">
+        <p style="color: #8da399; margin-bottom: 15px;">输入暗号进入林间</p>
+        <input type="password" id="passInput" placeholder="..." style="background:transparent; border:none; border-bottom:1px solid #ffb347; color:white; text-align:center; outline:none; font-size:1.2rem;" oninput="validatePass(this.value)">
+        <button id="enterBtn" onclick="grantAccess()">开启森林</button>
+    </div>
+
+    <div id="customConfirm">
+        <div class="confirm-box">
+            <div class="confirm-text" id="confirmMsg">确定要执行吗？</div>
+            <div style="display:flex; gap:15px; justify-content:center;">
+                <button class="btn-cancel" onclick="closeConfirmModal()">取消</button>
+                <button class="btn-delete" id="confirmYesBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="heart-container"></div>
+
+    <header>
+        <div class="forest-text">虽然森林很大 有时候容易迷路</div>
+        <div class="autumn-text">但秋天总会如约而至</div>
+    </header>
+
+    <div class="input-section">
+        <div id="imagePreviewContainer"></div>
+        
+        <textarea id="diaryInput" placeholder="存入此时此刻..." oninput="autoResize(this)"></textarea>
+        
+        <div class="mood-selector" style="display:flex; gap:12px; margin: 10px 0;">
+            <div class="mood-btn active" onclick="setMood('gold', this)" style="background: var(--autumn-gold); width:18px; height:18px; border-radius:50%; cursor:pointer;"></div>
+            <div class="mood-btn" onclick="setMood('pink', this)" style="background: var(--love-pink); width:18px; height:18px; border-radius:50%; cursor:pointer;"></div>
+            <div class="mood-btn" onclick="setMood('blue', this)" style="background: var(--tired-blue); width:18px; height:18px; border-radius:50%; cursor:pointer;"></div>
+        </div>
+
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-top:12px; width:100%;">
+            <input type="text" id="authorName" class="author-input" placeholder="名字" value="lin">
+            
+            <div class="control-right" style="display:flex; align-items: center; gap: 12px;">
+                <label for="fileInput" class="photo-btn" style="font-size: 1.35rem; cursor: pointer; opacity: 0.9; margin: 0;">📷</label>
+                <input type="file" id="fileInput" accept="image/*" style="display:none" multiple onchange="handleFile(this)">
+                
+                <label style="font-size:0.8rem; color:#8da399; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <input type="checkbox" id="capsuleCheck" onchange="document.getElementById('capsuleTime').style.display=this.checked?'block':'none'"> 胶囊
+                </label>
+                <input type="datetime-local" id="capsuleTime" style="display:none; font-size:0.75rem;">
+                <button id="publishBtn" onclick="publishEntry()">发布日志</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="diary-list"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://hhsonthokjwhpcgbpnru.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoc29udGhva2p3aHBjZ2JwbnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTUwNjQsImV4cCI6MjA5MTgzMTA2NH0.bf96o-eDXFSrOeHqTmnNSQZqDIDG7cjq1zciX7PNDQc';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let currentMood = 'gold';
+        const moodColors = { gold: '#ffb347', pink: '#ff85a1', blue: '#70a1ff' };
+        
+        let selectedFiles = []; 
+        let globalDiaries = [];
+        let confirmAction = null;
+        let inlineEditingId = null;
+        let replyEditingKey = null;
+
+        fetchDiaries();
+
+        function openImageOverlay(src) { document.getElementById('fullImage').src = src; document.getElementById('imageOverlay').style.display = 'flex'; }
+        function closeImageOverlay() { document.getElementById('imageOverlay').style.display = 'none'; }
+        function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+        
+        function handleFile(input) { 
+            const newFiles = Array.from(input.files); 
+            if (selectedFiles.length + newFiles.length > 9) {
+                alert("森林小提示：最多只能同时上传9张照片哦~");
+                input.value = '';
+                return;
+            }
+            selectedFiles = selectedFiles.concat(newFiles);
+            input.value = ''; 
+            renderPreviews();
+        }
+
+        function renderPreviews() {
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = '';
+            if (selectedFiles.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'flex';
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader(); 
+                reader.onload = (e) => { 
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'preview-wrapper';
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'preview-mini-img';
+                    const delBtn = document.createElement('div');
+                    delBtn.innerHTML = '✕';
+                    delBtn.className = 'preview-delete-btn';
+                    delBtn.onclick = () => { selectedFiles.splice(index, 1); renderPreviews(); };
+                    wrapper.appendChild(img); wrapper.appendChild(delBtn); container.appendChild(wrapper);
+                }; 
+                reader.readAsDataURL(file); 
+            });
+        }
+
+        // 🔴 暗号已在这里自动配置为 1204
+        function validatePass(val) { const btn = document.getElementById('enterBtn'); if (val === '邱天' || val === '1204') btn.classList.add('visible'); else btn.classList.remove('visible'); }
+        function grantAccess() { document.getElementById('passcodeOverlay').style.opacity = '0'; setTimeout(() => { document.getElementById('passcodeOverlay').style.display = 'none'; startSite(); fetchDiaries(); }, 800); }
+        function toggleMusic() { const m = document.getElementById('bgMusic'); m.muted = false; if (m.paused) { m.play(); document.getElementById('musicToggle').classList.add('playing'); } else { m.pause(); document.getElementById('musicToggle').classList.remove('playing'); } }
+
+        async function fetchDiaries() { const { data } = await supabaseClient.from('ForestLog').select('*').order('created_at', { ascending: false }); if (data) { globalDiaries = data; renderDiaries(data); } }
+
+        function renderDiaries(data) {
+            const list = document.getElementById('diary-list');
+            if (!list) return;
+            const now = new Date();
+            list.innerHTML = data.map(item => {
+                const isEditing = String(item.id) === String(inlineEditingId);
+                const unlockAt = item.unlock_at ? new Date(item.unlock_at) : new Date(new Date(item.created_at).getTime() + 86400000);
+                const isLocked = item.is_capsule && now < unlockAt;
+                let timeTip = isLocked ? ` (⏳ ${Math.floor((unlockAt-now)/3600000)}时${Math.floor(((unlockAt-now)%3600000)/60000)}分后开启)` : '';
+                
+                let imgHtml = '';
+                if (!isLocked && item.image_url) {
+                    const urls = item.image_url.split(',').filter(url => url.trim() !== '');
+                    if (urls.length === 1) {
+                        imgHtml = `<img src="${urls[0]}" class="diary-image-single" onclick="openImageOverlay(this.src)">`;
+                    } else if (urls.length > 1) {
+                        imgHtml = `<div class="diary-image-grid">`;
+                        urls.forEach(url => {
+                            imgHtml += `<img src="${url}" class="diary-grid-img" onclick="openImageOverlay(this.src)">`;
+                        });
+                        imgHtml += `</div>`;
+                    }
+                }
+                
+                const replies = item.replies || [];
+                let repliesHtml = `<div class="replies-section">` + replies.map((r, index) => {
+                    const isReplyEditing = replyEditingKey === `${item.id}-${index}`;
+                    const rTime = r.time ? new Date(r.time).toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+                    if (isReplyEditing) {
+                        return `<div style="margin-top:5px;"><div style="display:flex; align-items:center; gap:4px;">
+                                <input type="text" id="re-name-${item.id}-${index}" style="width:45px; background:transparent; border:none; color:#ffb347; font-weight:bold; font-size:0.9rem; outline:none;" value="${r.name}">
+                                <span style="color:#ffb347; font-weight:bold;">:</span>
+                                <input type="text" id="re-input-${item.id}-${index}" style="flex:1; background:transparent; border:none; color:white; font-size:0.9rem; outline:none;" value="${r.text}">
+                                </div><div class="edit-actions"><button class="btn-mini-cancel" onclick="cancelReplyEdit()">取消</button><button class="btn-mini-save" onclick="saveReplyEdit('${item.id}', ${index})">保存</button></div></div>`;
+                    }
+                    return `<div class="reply-item"><div class="reply-content"><span style="color:var(--autumn-gold); font-weight:bold; margin-right:6px;">${r.name}:</span>${r.text}<span style="font-size:0.75rem; color:rgba(141,163,153,0.4); margin-left:8px;">${rTime}</span></div><div style="display:flex;gap:5px;"><button class="action-btn" style="font-size:0.8rem;opacity:0.4;" onclick="startReplyEdit('${item.id}', ${index})">✎</button><button class="action-btn" style="font-size:0.8rem;opacity:0.4;color:#ff5e5e;" onclick="openConfirmModal('reply', '${item.id}', ${index})">✕</button></div></div>`;
+                }).join('') + `</div>`;
+
+                const authorHtml = isEditing ? 
+                    `<input type="text" id="inline-edit-author-${item.id}" class="inline-edit-author" value="${item.author || '匿名'}">` : 
+                    `<span style="color:#ffb347; font-weight:bold; margin-right:8px;">${item.author || '匿名'}</span>`;
+
+                const contentArea = isEditing ? `
+                    <textarea id="inline-editor-${item.id}" class="inline-edit-area" oninput="autoResize(this)">${item.content}</textarea>
+                    <div class="edit-actions"><button class="btn-mini-cancel" onclick="cancelInlineEdit()">取消</button><button class="btn-mini-save" onclick="saveInlineEdit('${item.id}')">保存</button></div>
+                ` : `<div class="diary-text" style="${isLocked ? 'color:#555; font-style:italic;' : ''}">${isLocked ? `时光胶囊传送中...${timeTip}` : item.content}</div>`;
+
+                return `<div class="diary-item" style="border-left-color: ${moodColors[item.mood] || moodColors.gold} !important;">
+                    <div class="diary-header">
+                        <div style="font-size:0.75rem; color:#8da399; display:flex; align-items:center;">${authorHtml}${new Date(item.created_at).toLocaleString('zh-CN')}</div>
+                        <div class="actions"><button class="action-btn" onclick="toggleReplyBox('${item.id}')">💬</button><button class="action-btn" onclick="startInlineEdit('${item.id}')">✎</button><button class="action-btn" onclick="openConfirmModal('log', '${item.id}')">✕</button></div>
+                    </div>
+                    ${contentArea}${imgHtml}${repliesHtml}
+                    <div class="reply-input-box" id="reply-box-${item.id}">
+                        <input type="text" class="reply-name-field" id="reply-name-${item.id}" placeholder="名字">
+                        <input type="text" class="reply-field" id="reply-input-${item.id}" placeholder="想对Ta说...">
+                        <button onclick="submitReply('${item.id}')" style="background:var(--autumn-gold); border:none; border-radius:12px; padding:4px 12px; font-size:0.75rem; cursor:pointer; font-weight:bold; color:#1c2b23;">发送</button>
+                    </div>
+                </div>`;
+            }).join('');
+            if(inlineEditingId) { const el = document.getElementById(`inline-editor-${inlineEditingId}`); if(el) autoResize(el); }
+        }
+
+        async function submitReply(id) {
+            const name = document.getElementById(`reply-name-${id}`).value.trim() || '匿名';
+            const text = document.getElementById(`reply-input-${id}`).value.trim();
+            if (!text) return;
+            const { data: item } = await supabaseClient.from('ForestLog').select('replies').eq('id', id).single();
+            const newReplies = [...(item.replies || []), { name, text, time: new Date().toISOString() }];
+            await supabaseClient.from('ForestLog').update({ replies: newReplies }).eq('id', id);
+            fetchDiaries();
+        }
+
+        async function saveReplyEdit(logId, index) {
+            const newName = document.getElementById(`re-name-${logId}-${index}`).value.trim();
+            const newText = document.getElementById(`re-input-${logId}-${index}`).value.trim();
+            if(!newName || !newText) return;
+            const { data: item } = await supabaseClient.from('ForestLog').select('replies').eq('id', logId).single();
+            let nr = [...item.replies]; nr[index] = { ...nr[index], name: newName, text: newText };
+            await supabaseClient.from('ForestLog').update({ replies: nr }).eq('id', logId);
+            replyEditingKey = null; fetchDiaries();
+        }
+
+        function startReplyEdit(logId, index) { replyEditingKey = `${logId}-${index}`; renderDiaries(globalDiaries); }
+        function cancelReplyEdit() { replyEditingKey = null; renderDiaries(globalDiaries); }
+        function startInlineEdit(id) { inlineEditingId = id; renderDiaries(globalDiaries); }
+        function cancelInlineEdit() { inlineEditingId = null; renderDiaries(globalDiaries); }
+        async function saveInlineEdit(id) { 
+            const nt = document.getElementById(`inline-editor-${id}`).value.trim(); 
+            const na = document.getElementById(`inline-edit-author-${id}`).value.trim();
+            await supabaseClient.from('ForestLog').update({ content: nt, author: na || '匿名' }).eq('id', id); 
+            inlineEditingId = null; fetchDiaries(); 
+        }
+        function toggleReplyBox(id) { const box = document.getElementById(`reply-box-${id}`); box.style.display = (box.style.display === 'flex') ? 'none' : 'flex'; }
+        
+        function openConfirmModal(type, id, index = null) {
+            const modal = document.getElementById('customConfirm');
+            if (type === 'log') { confirmAction = async () => { await supabaseClient.from('ForestLog').delete().eq('id', id); closeConfirmModal(); fetchDiaries(); }; } 
+            else { confirmAction = async () => { const { data: item } = await supabaseClient.from('ForestLog').select('replies').eq('id', id).single(); let nr = [...item.replies]; nr.splice(index, 1); await supabaseClient.from('ForestLog').update({ replies: nr }).eq('id', id); closeConfirmModal(); fetchDiaries(); }; }
+            modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10);
+        }
+        function closeConfirmModal() { document.getElementById('customConfirm').classList.remove('show'); setTimeout(() => { document.getElementById('customConfirm').style.display = 'none'; }, 300); }
+        document.getElementById('confirmYesBtn').onclick = () => confirmAction();
+
+        async function publishEntry() {
+            const content = document.getElementById('diaryInput').value.trim();
+            const author = document.getElementById('authorName').value.trim() || '匿名';
+            const isCapsule = document.getElementById('capsuleCheck').checked;
+            const unlockAt = document.getElementById('capsuleTime').value;
+            
+            if (!content && selectedFiles.length === 0) return;
+            const btn = document.getElementById('publishBtn');
+            btn.innerText = '发送中...'; btn.disabled = true;
+
+            try {
+                let uploadedUrls = [];
+                if (selectedFiles.length > 0) {
+                    for (let i = 0; i < selectedFiles.length; i++) {
+                        const file = selectedFiles[i];
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `${Date.now()}_${i}.${fileExt}`;
+                        const { data, error } = await supabaseClient.storage.from('forest-images').upload(fileName, file);
+                        if (error) throw new Error("图片上传失败");
+                        if (data) {
+                            const publicUrl = supabaseClient.storage.from('forest-images').getPublicUrl(fileName).data.publicUrl;
+                            uploadedUrls.push(publicUrl);
+                        }
+                    }
+                }
+
+                const finalUrlsString = uploadedUrls.join(',');
+                const payload = { content, author, mood: currentMood, is_capsule: isCapsule, image_url: finalUrlsString || null };
+                if (isCapsule && unlockAt) payload.unlock_at = new Date(unlockAt).toISOString();
+                
+                await supabaseClient.from('ForestLog').insert([payload]);
+                
+                document.getElementById('diaryInput').value = ''; 
+                selectedFiles = []; 
+                renderPreviews(); 
+                fetchDiaries();
+            } catch (e) { 
+                alert("发布失败: " + e.message); 
+            } finally { 
+                btn.innerText = '发布日志'; btn.disabled = false; 
+            }
+        }
+
+        function setMood(mood, btn) { currentMood = mood; document.querySelectorAll('.mood-btn').forEach(b => b.style.boxShadow = 'none'); btn.style.boxShadow = '0 0 8px white'; }
+        function createHeart() { const container = document.getElementById('heart-container'); if (!container) return; const heart = document.createElementNS("http://www.w3.org/2000/svg", "svg"); heart.setAttribute("viewBox", "0 0 24 24"); heart.setAttribute("class", "heart"); const size = Math.random() * 15 + 25; heart.style.width = size + "px"; heart.style.left = Math.random() * 100 + "vw"; heart.style.animationDuration = (Math.random() * 4 + 6) + "s"; heart.style.fill = moodColors[currentMood]; heart.innerHTML = `<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>`; container.appendChild(heart); setTimeout(() => heart.remove(), 10000); }
+        function startSite() { setInterval(createHeart, 400); supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'ForestLog' }, fetchDiaries).subscribe(); }
+    </script>
+</body>
+</html>
