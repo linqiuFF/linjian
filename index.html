@@ -47,9 +47,11 @@
         textarea { width: 100%; background: transparent; border: none; color: white; font-size: 1.15rem; resize: none; outline: none; min-height: 80px; line-height: 1.6; box-sizing: border-box; scrollbar-width: none; }
         textarea::-webkit-scrollbar { display: none; }
 
-        /* 多图选定后的微型预览九宫格 */
-        #imagePreviewContainer { display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; max-width: 260px; }
-        .preview-mini-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--autumn-gold); }
+        /* 🔴 预览区样式：多图横排 + 小叉号 */
+        #imagePreviewContainer { display: none; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+        .preview-wrapper { position: relative; display: inline-block; }
+        .preview-mini-img { width: 65px; height: 65px; object-fit: cover; border-radius: 8px; border: 1px solid var(--autumn-gold); }
+        .preview-delete-btn { position: absolute; top: -6px; right: -6px; background: #ff5e5e; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold; }
 
         .author-input { background: rgba(255,255,255,0.08); border: 1px solid #444; color: #eee; border-radius: 12px; padding: 6px 12px; width: 65px; font-size: 0.9rem; outline: none; }
         
@@ -57,7 +59,7 @@
         .photo-btn { font-size: 1.35rem; cursor: pointer; opacity: 0.9; margin: 0; }
         button#publishBtn { background: var(--autumn-gold); border: none; padding: 8px 16px; border-radius: 25px; cursor: pointer; font-weight: bold; color: #1c2b23; transition: 0.3s; }
 
-        /* 日志列表卡片 */
+        /* 日志卡片 */
         #diary-list { width: 100%; max-width: 500px; z-index: 1; padding-bottom: 50px; box-sizing: border-box; }
         .diary-item { background: var(--card-bg); padding: 12px 18px !important; border-radius: 15px; margin-bottom: 15px; border: 1px solid var(--card-border); border-left: 5px solid var(--autumn-gold) !important; backdrop-filter: blur(5px); position: relative; width: 100%; box-sizing: border-box; text-align: left; }
         
@@ -70,11 +72,9 @@
         .diary-grid-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: zoom-in; transition: 0.2s; }
         .diary-grid-img:hover { opacity: 0.8; }
 
-        /* 原位修改编辑框 */
         .inline-edit-author { width: 55px; background: transparent; border: none; color: var(--autumn-gold); font-weight: bold; font-size: 0.75rem; outline: none; margin-right: 8px; padding: 0; }
         .inline-edit-area { width: 100%; background: transparent !important; border: none !important; color: white; font-size: 1rem; line-height: 1.6; outline: none; resize: none; margin-bottom: 5px; box-shadow: none !important; }
         
-        /* 评论区样式 */
         .replies-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
         .reply-item { font-size: 0.9rem; color: #8da399; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
         .reply-content { flex: 1; border-left: 2px solid rgba(255,179,71,0.4); padding-left: 10px; line-height: 1.4; }
@@ -171,6 +171,7 @@
         let currentMood = 'gold';
         const moodColors = { gold: '#ffb347', pink: '#ff85a1', blue: '#70a1ff' };
         
+        // 🔴 核心变量：存储所有选中的图片
         let selectedFiles = []; 
         let globalDiaries = [];
         let confirmAction = null;
@@ -183,32 +184,56 @@
         function closeImageOverlay() { document.getElementById('imageOverlay').style.display = 'none'; }
         function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
         
+        // 🔴 处理选中的文件
         function handleFile(input) { 
-            const files = Array.from(input.files); 
-            if (files.length > 9) {
+            const newFiles = Array.from(input.files); 
+            if (selectedFiles.length + newFiles.length > 9) {
                 alert("森林小提示：最多只能同时上传9张照片哦~");
                 input.value = '';
                 return;
             }
-            selectedFiles = files;
+            // 把新选的图片追加进数组
+            selectedFiles = selectedFiles.concat(newFiles);
+            input.value = ''; // 清空 input，允许再次选同一张图
+            renderPreviews();
+        }
+
+        // 🔴 渲染预览图和红叉叉
+        function renderPreviews() {
             const container = document.getElementById('imagePreviewContainer');
             container.innerHTML = '';
             
-            if (files.length > 0) {
-                container.style.display = 'grid';
-                files.forEach(file => {
-                    const reader = new FileReader(); 
-                    reader.onload = (e) => { 
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.className = 'preview-mini-img';
-                        container.appendChild(img);
-                    }; 
-                    reader.readAsDataURL(file); 
-                });
-            } else {
+            if (selectedFiles.length === 0) {
                 container.style.display = 'none';
+                return;
             }
+            
+            container.style.display = 'flex';
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader(); 
+                reader.onload = (e) => { 
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'preview-wrapper';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'preview-mini-img';
+                    
+                    const delBtn = document.createElement('div');
+                    delBtn.innerHTML = '✕';
+                    delBtn.className = 'preview-delete-btn';
+                    // 点击红叉叉，删除对应的图片
+                    delBtn.onclick = () => {
+                        selectedFiles.splice(index, 1);
+                        renderPreviews();
+                    };
+                    
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(delBtn);
+                    container.appendChild(wrapper);
+                }; 
+                reader.readAsDataURL(file); 
+            });
         }
 
         function validatePass(val) { const btn = document.getElementById('enterBtn'); if (val === '邱天' || val === '1314') btn.classList.add('visible'); else btn.classList.remove('visible'); }
@@ -227,7 +252,7 @@
                 const isLocked = item.is_capsule && now < unlockAt;
                 let timeTip = isLocked ? ` (⏳ ${Math.floor((unlockAt-now)/3600000)}时${Math.floor(((unlockAt-now)%3600000)/60000)}分后开启)` : '';
                 
-                // 核心：智能识别单图与多图九宫格渲染
+                // 🔴 日志列表里的图片渲染：单图大图 / 多图九宫格
                 let imgHtml = '';
                 if (!isLocked && item.image_url) {
                     const urls = item.image_url.split(',').filter(url => url.trim() !== '');
@@ -322,7 +347,7 @@
         function closeConfirmModal() { document.getElementById('customConfirm').classList.remove('show'); setTimeout(() => { document.getElementById('customConfirm').style.display = 'none'; }, 300); }
         document.getElementById('confirmYesBtn').onclick = () => confirmAction();
 
-        // 串行多图上传合并路径
+        // 🔴 发布日志时，循环上传多图并拼接 URL
         async function publishEntry() {
             const content = document.getElementById('diaryInput').value.trim();
             const author = document.getElementById('authorName').value.trim() || '匿名';
@@ -342,7 +367,7 @@
                         const fileName = `${Date.now()}_${i}.${fileExt}`;
                         
                         const { data, error } = await supabaseClient.storage.from('forest-images').upload(fileName, file);
-                        if (error) throw new Error("其中一张图片上传失败了");
+                        if (error) throw new Error("图片传失败了");
                         
                         if (data) {
                             const publicUrl = supabaseClient.storage.from('forest-images').getPublicUrl(fileName).data.publicUrl;
@@ -357,11 +382,10 @@
                 
                 await supabaseClient.from('ForestLog').insert([payload]);
                 
+                // 🔴 发布成功后清空状态
                 document.getElementById('diaryInput').value = ''; 
-                document.getElementById('imagePreviewContainer').innerHTML = '';
-                document.getElementById('imagePreviewContainer').style.display = 'none';
-                document.getElementById('fileInput').value = '';
                 selectedFiles = []; 
+                renderPreviews(); 
                 fetchDiaries();
             } catch (e) { 
                 alert("发布失败，请检查网络: " + e.message); 
