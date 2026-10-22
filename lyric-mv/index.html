@@ -274,7 +274,7 @@ function drawText(L,lt,t,be,face,dim,clipFn){
     for(const ch of L.chars){
       if(ch.k!==k)continue;
       const f=clamp((lt-ch.tr)/ch.cd),age=lt-ch.tr-ch.cd;
-      const punch=ch.emph&&age>0?1+0.22*Math.exp(-age*7)+0.05*be.pulse:1;
+      const punch=ch.emph&&age>0?1+0.18*Math.exp(-age*7):1;
       ctx.save();ctx.translate(ch.x,ch.y+dy);ctx.scale(punch,punch);
       const cr=L.act==='broken'&&ch.emph&&L.hero&&ch.g>=L.hero.g&&ch.g<L.hero.g+L.hero.w.length&&age>0?eOut(clamp(age/0.3)):0;
       if(cr>0){ // “残缺”两个字沿锯齿线裂开
@@ -294,7 +294,7 @@ function drawText(L,lt,t,be,face,dim,clipFn){
 
 function stampText(L,lt,t,be){
   const p=clamp(lt/0.2);
-  const s=lerp(2.6,1,eOut(p))+(lt>0.2?0.03*be.pulse:0);
+  const s=lerp(2.6,1,eOut(p));
   const {size,R}=L,lh=size*1.12,bw=L.rw+size*0.9,bh=R*lh+size*0.5;
   ctx.save();ctx.globalAlpha=clamp(p*4);
   ctx.translate(W/2,L.cy);ctx.rotate(-0.09+(1-p)*0.3);ctx.scale(s,s);
@@ -364,10 +364,9 @@ function drawLine(L,t){
   if(L.rain)rain(t,clamp(lt/1.2));
   // 镜头:慢推 + 节拍冲击 + 倾斜 + 印章震动
   const prog=clamp(lt/(L.t1-L.t0));
-  const z=1.05-0.05*eOut(prog)+0.014*be.pulse;
-  const shk=st==='s'&&lt>0.2&&lt<0.55?(0.55-lt)/0.35*16:0;
+  const z=1.05-0.05*eOut(prog);
   ctx.save();
-  ctx.translate(W/2+Math.sin(lt*95)*shk,H/2+Math.cos(lt*80)*shk);ctx.rotate(L.tilt);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
+  ctx.translate(W/2,H/2);ctx.rotate(L.tilt);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
   let polyX=0;
   if(st==='b'){
     polyX=lerp(W+300,1080,eOut(clamp(lt/0.4)));
@@ -436,13 +435,13 @@ function introTitle(t){
   floaters(t,'rgba(255,255,255,.25)');
   eq(0,1040,W,170+120*clamp((t-8)/6),48,t,be.pulse,'rgba(255,255,255,.10)');
   if(be.i%4===0){ctx.fillStyle=`rgba(255,61,139,${0.12*be.pulse})`;ctx.fillRect(0,0,W,H);}
-  ctx.save();const z=1+0.012*Math.sin(lt*0.4)+0.015*be.pulse;ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
+  ctx.save();const z=1+0.012*Math.sin(lt*0.4);ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
   ctx.fillStyle='#15121f';ctx.strokeStyle='#403c55';ctx.lineWidth=4;
   const bp=eOut(clamp(lt/0.4));
   ctx.beginPath();ctx.roundRect(300,300+(1-bp)*80,1320,320,24);ctx.globalAlpha=bp;ctx.fill();ctx.stroke();ctx.globalAlpha=1;
   ctx.fillStyle=C.mag;ctx.font=`900 170px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
   if(bp>0.9)ctx.fillText('>',390,462);
-  const glitch=be.i%4===0&&be.pulse>0.45&&lt>2,gx=glitch?(rnd(be.i)()-0.5)*30:0;
+  const glitch=be.i%4===0&&be.pulse>0.45&&lt>2,gx=0;
   ctx.font=`900 200px ${FONT}`;
   [...'迷人的危险'].forEach((c,k)=>{
     const age=lt-0.3-k*0.09;if(age<0)return;const p=clamp(age/0.34),s=lerp(0.3,1,eBack(p));
@@ -580,8 +579,7 @@ function composite(S,e,A,B){
       g.translate(W/2,H/2);g.scale(Math.max(sx,0.001),1-0.08*(1-sx));g.drawImage(img,-W/2,-H/2);
       break;}
     case 'cut': default:{ // 卡拍硬切 + 闪白抖动
-      const r=rnd(Math.floor(e*12)+3),sh=(1-e)*36;
-      g.drawImage(B,(r()-0.5)*sh,(r()-0.5)*sh);
+      g.drawImage(B,0,0);
       g.fillStyle=`rgba(255,255,255,${(1-clamp(e/0.5))*0.55})`;g.fillRect(0,0,W,H);
     }
   }
