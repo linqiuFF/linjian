@@ -49,10 +49,10 @@ const gt=(i,sub)=>TM[i].t0+TM[i].tr[TM[i].flat.indexOf(sub)];
 /* ---------- 页面:每句一页,世界坐标里互相隔开 ---------- */
 const PAGES=[
   {ox:0,oy:0,bg:C.ink,dark:1,big:'泪'},
-  {ox:2700,oy:1500,bg:C.paper,dark:0,big:'朋'},
-  {ox:2700,oy:3200,bg:'#e3a38f',dark:0,big:'滚'},
-  {ox:5400,oy:3200,bg:C.teal,dark:1,big:'配'},
-  {ox:5400,oy:1300,bg:C.ink,dark:1,big:'痛'},
+  {ox:0,oy:1400,bg:C.paper,dark:0,big:'朋'},
+  {ox:0,oy:2800,bg:'#e3a38f',dark:0,big:'滚'},
+  {ox:2400,oy:2800,bg:C.teal,dark:1,big:'配'},
+  {ox:2400,oy:1400,bg:C.ink,dark:1,big:'痛'},
 ];
 const G=[
   {p:0,l:0,s:'当你的',x:280,y:330,size:190,enter:'slideL'},
@@ -71,20 +71,27 @@ const G=[
 ];
 G.forEach((g,k)=>{g.ta=gt(g.l,g.s)-0.04;g.no=k+1;});
 const PUNCH_T=G[5].ta+0.18,KNOCK_T=G[9].ta+0.16,FLY_T=G[7].ta+0.4;
+const SLIDE_T=gt(1,'我只能像朋友地')-0.85,DROP_T=PUNCH_T+0.25,ZOOM_T=gt(4,'你的')-0.45;
 
-/* ---------- 镜头:停在页面中心(轻微推近),换页时快速甩过去 ---------- */
-const ARRIVE=[START,gt(1,'我只能像朋友地')-0.08,gt(2,'想揍他一拳')-0.08,FLY_T+0.55,gt(4,'你的')-0.08];
-const WHIP=[0,0.5,0.5,0.55,0.5]; // 到达这一页之前的甩镜时长
-const center=k=>({x:PAGES[k].ox+W/2,y:PAGES[k].oy+H/2});
+/* ---------- 镜头关键帧:停在页面上时只有这一页;转场时跟着元素走 ---------- */
+const PC=k=>[PAGES[k].ox+W/2,PAGES[k].oy+H/2];
+const MAPC=[2160,1940];
+const CAMK=[
+  [START,...PC(0),1.03],[SLIDE_T,...PC(0),1.06],            // 第一页
+  [SLIDE_T+0.85,...PC(1),1.03],[DROP_T,...PC(1),1.06],       // 跟着“滑过侧脸”往下 → 第二页
+  [DROP_T+0.6,...PC(2),1.03],[FLY_T,...PC(2),1.06],          // 跟着“想揍他一拳”掉下去 → 第三页
+  [FLY_T+0.55,...PC(3),1.03],[ZOOM_T,...PC(3),1.07],         // 追着“滚远”甩过去 → 第四页
+  [ZOOM_T+0.6,MAPC[0],MAPC[1],0.25],[ZOOM_T+0.85,MAPC[0],MAPC[1],0.25], // 拉远:五页一起出现
+  [ZOOM_T+1.5,...PC(4),1.03],[END,...PC(4),1.07]];           // 推进到最后一页
 function cam(t){
-  let k=0;while(k<PAGES.length-1&&t>=ARRIVE[k+1]-WHIP[k+1])k++;
-  const a=center(k);
-  if(k<PAGES.length-1){}
-  const s0=ARRIVE[k],whipStart=ARRIVE[k]-WHIP[k];
-  if(k>0&&t<s0){const b=center(k-1),p=eIO(clamp((t-whipStart)/WHIP[k]));
-    return{x:lerp(b.x,a.x,p),y:lerp(b.y,a.y,p),z:1.03-0.18*Math.sin(Math.PI*p),k,moving:1};}
-  const hold=clamp((t-s0)/6);
-  return{x:a.x+Math.sin(t*0.6)*6,y:a.y+Math.cos(t*0.5)*4,z:lerp(1.03,1.07,hold),k,moving:0};
+  let k=0;while(k<CAMK.length-2&&CAMK[k+1][0]<=t)k++;
+  const a=CAMK[k],b=CAMK[k+1],p=eIO(clamp((t-a[0])/(b[0]-a[0])));
+  const moving=Math.hypot(a[1]-b[1],a[2]-b[2])>1;
+  const z=moving?Math.exp(lerp(Math.log(a[3]),Math.log(b[3]),p)):lerp(a[3],b[3],clamp((t-a[0])/(b[0]-a[0])));
+  const dr=moving?0:1;
+  const x=lerp(a[1],b[1],p)+Math.sin(t*0.6)*6*dr,y=lerp(a[2],b[2],p)+Math.cos(t*0.5)*4*dr;
+  let pk=0,best=1e18;PAGES.forEach((P,i)=>{const d=Math.hypot(P.ox+W/2-x,P.oy+H/2-y);if(d<best){best=d;pk=i;}});
+  return{x,y,z,k:pk};
 }
 
 /* ---------- 绘图工具 ---------- */
@@ -108,7 +115,7 @@ const tone=P=>P.dark?mix(P.bg,'#ffffff',0.07):mix(P.bg,'#000000',0.06);
 
 /* ---------- 每页的拼贴小物件(自动避开歌词) ---------- */
 const LABELS=['SIDE A','TRACK 05','136 BPM','REC ●','DF-01','STEREO','NO.05','LIVE'];
-const AVOID={1:[[1000,470,900,260]],2:[[1300,240,520,200]],3:[[1180,700,600,260],[1300,60,600,520]],0:[[1250,500,200,500]]};
+const AVOID={1:[[1000,640,900,300],[300,700,1000,240]],2:[[1300,240,520,200]],3:[[1180,700,600,260],[1300,60,600,520]],0:[[1250,500,200,500]]};
 const COLLAGE=PAGES.map((P,pi)=>{
   const r=rnd(2024+pi),keep=[],avoid=(AVOID[pi]||[]).slice();
   G.filter(g=>g.p===pi).forEach(g=>{const w=[...g.s].length*g.size*0.98;avoid.push([g.x-90,g.y-g.size*0.95,w+180,g.size*1.9]);});
@@ -175,7 +182,8 @@ function toggle(t){ // 「朋友/恋人」开关:两次想拨到恋人,都弹回
   const ap=eBack(clamp((t-ta)/0.35));
   let pos=0;for(const[t0,amt]of[[gt(1,'朋友')+0.6,0.62],[gt(1,'体贴')+0.3,0.42]]){const q=t-t0;if(q<0)continue;pos=q<0.35?amt*eOut(q/0.35):q<0.7?amt*(1-eBack(clamp((q-0.35)/0.35))):0;}
   pos=Math.max(0,pos);
-  ctx.save();ctx.translate(1430,600);ctx.scale(ap,ap);
+  const k=t-PUNCH_T;let tx=1430,ty=820,tr=0;if(k>0){tx+=k*1400;ty+=-k*900+k*k*900;tr=k*4;}
+  ctx.save();ctx.translate(tx,ty);ctx.rotate(tr);ctx.scale(ap,ap);
   const tw=380,th=140;ctx.fillStyle=C.ink;ctx.beginPath();ctx.roundRect(-tw/2+10,-th/2+10,tw,th,th/2);ctx.fill();
   ctx.fillStyle=C.gray;ctx.strokeStyle=C.ink;ctx.lineWidth=6;ctx.beginPath();ctx.roundRect(-tw/2,-th/2,tw,th,th/2);ctx.fill();ctx.stroke();
   const kx=lerp(-tw/2+th/2,tw/2-th/2,pos);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(kx,0,th/2-14,0,6.283);ctx.fill();ctx.stroke();
@@ -213,7 +221,7 @@ function drawText(g,P,t,o={}){
   const{x,y,s,sx,sy,rot,al}=o.pose||pose(g,t);
   ctx.save();ctx.globalAlpha=al;ctx.translate(x+w/2,y);ctx.rotate(rot);ctx.scale(s*sx,s*sy);ctx.translate(-w/2,0);
   ctx.font=`900 ${g.size}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
-  if(a>0.25&&!o.pose){ctx.save();ctx.globalAlpha=al*clamp((a-0.25)/0.3);ctx.font=`700 24px ${MONO}`;ctx.textAlign='left';ctx.fillStyle=dark?'rgba(239,228,214,.55)':'rgba(43,33,28,.55)';
+  if(a>0.25&&(!o.pose||o.label)){ctx.save();ctx.globalAlpha=al*clamp((a-0.25)/0.3);ctx.font=`700 24px ${MONO}`;ctx.textAlign='left';ctx.fillStyle=dark?'rgba(239,228,214,.55)':'rgba(43,33,28,.55)';
     const dy=-g.size*0.78-(g.enter==='slam'?40:0);ctx.fillText(String(g.no).padStart(2,'0')+' — '+fmt(g.ta),0,dy);ctx.fillRect(0,dy+16,60,3);ctx.restore();}
   if(g.plate){ctx.fillStyle=SH(dark);ctx.beginPath();ctx.roundRect(-g.size*0.25+12,-g.size*0.62+12,w+g.size*0.5,g.size*1.24,14);ctx.fill();
     ctx.fillStyle=dark?C.paper:C.ink;ctx.beginPath();ctx.roundRect(-g.size*0.25,-g.size*0.62,w+g.size*0.5,g.size*1.24,14);ctx.fill();}
@@ -251,10 +259,33 @@ function drawGroup(g,P,t){
   drawText(g,P,t);
   burst(g.x+w/2,g.y,a-(g.enter==='punchR'?0.18:g.enter==='slam'?0.16:0.3),g.enter==='slam'?C.red:C.orange,g.ta*100|0);
 }
-function landedGunyuan(t){ // “滚远”被踢到下一页,撞到右下角停住
-  const g=G[7],f=t-FLY_T-0.35;if(f<0)return;
-  const p=clamp(f/0.3),x=lerp(-500,1340,eOut(p)),y=lerp(560,830,eBack(clamp((f-0.15)/0.45))),rot=lerp(0.6,0.2,eOut(clamp(f/0.6)));
-  drawText(g,PAGES[3],t,{pose:{x,y,s:1,sx:1,sy:1,rot,al:1}});
+const TRAVEL=new Set([2,5,7]); // 滑过侧脸 / 想揍他一拳 / 滚远
+function worldPose(g,t){
+  const P=PAGES[g.p],gi=G.indexOf(g);
+  if(gi===2){ // 滑过侧脸:在第一页里慢慢往下滑,转场时一路滑出页面
+    const q=pose(g,t),f=eIn(clamp((t-SLIDE_T)/0.85));
+    return{...q,x:q.x+P.ox+f*260,y:q.y+P.oy+f*1150,rot:q.rot+f*0.1,al:q.al*(1-clamp((q.y+f*1150-1200)/250))};}
+  if(gi===5){ // 想揍他一拳:砸进第二页撞飞开关,再掉进第三页
+    const P1=PAGES[1],q=pose(g,t),a={x:P1.ox+400+(q.x-g.x),y:P1.oy+820};
+    if(t<DROP_T)return{...q,x:a.x,y:a.y};
+    const f=eIO(clamp((t-DROP_T)/0.6));return{x:lerp(a.x,P.ox+g.x,f),y:lerp(a.y,P.oy+g.y,f),s:1,sx:1,sy:1,rot:Math.sin(f*Math.PI)*0.12,al:1};}
+  if(gi===7){ // 滚远:被踢出第三页,飞进第四页右下角撞住
+    const q=pose(g,t),f=t-FLY_T,P3=PAGES[3];
+    if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
+    const p=clamp(f/0.55),x=lerp(P.ox+g.x,P3.ox+1340,eIn(p)*0.85+p*0.15),y=lerp(P.oy+g.y,P3.oy+830,p*p);
+    const b=clamp((f-0.55)/0.4);return{x:x,y:y-(p>=1?Math.sin(b*Math.PI)*60*(1-b):0),s:1,sx:1,sy:1,rot:p<1?p*1.2:lerp(1.2,0.2,eOut(b)),al:1};}
+  const q=pose(g,t);return{...q,x:q.x+P.ox,y:q.y+P.oy};
+}
+function drawTraveler(g,t){
+  if(t<g.ta)return;
+  const P=PAGES[G.indexOf(g)===7&&t>FLY_T+0.3?3:G.indexOf(g)===5&&t<DROP_T+0.3?1:g.p];
+  const adv=g.size*0.98,w=[...g.s].length*adv;
+  for(let k=3;k>=1;k--){const A=worldPose(g,t-0.045*k),B=worldPose(g,t);if(Math.hypot(A.x-B.x,A.y-B.y)<6)continue;
+    ctx.save();ctx.globalAlpha=0.35/k*A.al;ctx.translate(A.x+w/2,A.y);ctx.rotate(A.rot);ctx.translate(-w/2,0);ctx.font=`900 ${g.size}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.strokeStyle=P.dark?C.paper:C.ink;ctx.lineWidth=4;[...g.s].forEach((c,j)=>ctx.strokeText(c,adv*(j+0.5),0));ctx.restore();}
+  drawText(g,P,t,{pose:worldPose(g,t),label:G.indexOf(g)!==7});
+  const a=t-g.ta;if(G.indexOf(g)===5)burst(PAGES[1].ox+400+w,PAGES[1].oy+820,t-PUNCH_T,C.orange,77);
+  else burst(worldPose(g,t).x+w/2,worldPose(g,t).y,a-0.3,C.orange,g.ta*100|0);
 }
 
 /* ---------- 一帧 ---------- */
@@ -269,11 +300,10 @@ function renderAt(t){
     ctx.save();ctx.translate(P.ox,P.oy);ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
     pageBack(P,pi,t,be,c);
     if(pi===1)toggle(t);
-    if(pi===2)bubble(t);
-    G.filter(g=>g.p===pi).forEach(g=>drawGroup(g,P,t));
-    if(pi===3)landedGunyuan(t);
+    G.filter(g=>g.p===pi&&!TRAVEL.has(G.indexOf(g))).forEach(g=>drawGroup(g,P,t));
     ctx.restore();
   });
+  TRAVEL.forEach(i=>drawTraveler(G[i],t));
   ctx.restore();
   // 甩镜时的速度线
   const v=Math.hypot(c.x-c0.x,c.y-c0.y)*c.z;
