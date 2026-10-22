@@ -20,7 +20,7 @@ canvas{width:1920px;height:1080px;display:block;cursor:pointer}
 (()=>{
 /* 完整版(0:00–1:15):每句歌词是一个满屏页面,页面在一张大画布上排成网格;
    镜头停下时画面里只有这一页,换页时跟着歌词里的动作走(滑下去、撞飞、踢走、掉下去、劈开、溢出、淹没) */
-const W=1920,H=1080,START=13.955,END=75,DUR_ALL=END-START; // 从 0:14 的节拍切入,前奏只留 4 秒
+const W=1920,H=1080,START=18.0,END=75,DUR_ALL=END-START; // 直接从第一句“当你的泪水滑过侧脸”开始
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const FONT='"LJBlack","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
 const MONO='"Consolas","WenQuanYi Zen Hei Mono","Courier New",monospace';
@@ -98,10 +98,9 @@ const RING_T=TM[5].t0-0.55,DROP5_T=TM[6].t0-0.65,CRACK_T=gt(6,'残缺')+0.2,FLY6
 
 /* ---------- 镜头关键帧:停在页面上时只有这一页;转场时跟着元素走 ---------- */
 const PC=k=>[PAGES[k].ox+W/2,PAGES[k].oy+H/2];
-const MAPC=[2160,1940],MAPALL=[5760,540];
+const MAPC=[2160,1940],MAPALL=[5760,1940];
 const CAMK=[
-  [START,...PC(12),1.0],[START+1.0,...PC(12),1.04],[START+1.35,...PC(13),1.0], // 开场:终端 → 播放器(压缩到 4 秒)
-  [17.2,...PC(13),1.06],[17.65,VINYL.x,VINYL.y,3.6],[18.05,...PC(0),1.03],    // 冲进唱片中心,穿出来是第一页
+  [START,...PC(0),1.08],[START+0.5,...PC(0),1.03],          // 一开场就是第一页
   [SLIDE_T,...PC(0),1.06],
   [SLIDE_T+0.6,...PC(1),1.03],[DROP_T,...PC(1),1.06],        // 跟着“滑过侧脸”往下 → 第二页
   [DROP_T+0.45,...PC(2),1.03],[FLY_T,...PC(2),1.06],         // 跟着“想揍他一拳”掉下去 → 第三页
@@ -115,7 +114,7 @@ const CAMK=[
   [SLASH_T+0.6,...PC(9),1.03],[POUR_T+0.15,...PC(9),1.06],   // 顺着刀口斜飞 → 等你好多年
   [POUR_T+0.65,...PC(10),1.03],[DIVE_T+0.15,...PC(10),1.06], // 进度条溢出往下流 → 淹灭
   [DIVE_T+0.6,...PC(11),1.03],[MAP_T,...PC(11),1.07],        // 潜进水里 → 死结
-  [MAP_T+1.0,MAPALL[0],MAPALL[1],0.152],[END,MAPALL[0],MAPALL[1],0.142]]; // 结尾:全片所有页面铺满一面墙
+  [MAP_T+1.0,MAPALL[0],MAPALL[1],0.155],[END,MAPALL[0],MAPALL[1],0.145]]; // 结尾:全片所有页面铺满一面墙
 // 页内推近:歌词出齐后卡着节拍推到关键词上,下一次转场再从这里带走
 const nearBeat=t=>{let best=t,d=1e9;for(const b of BEATS){const x=Math.abs(b-t);if(x<d){d=x;best=b;}}return d<0.25?best:t;};
 const PUNCH={};
@@ -451,6 +450,7 @@ function renderAt(t){
   ctx.save();ctx.translate(W/2,H/2);ctx.scale(c.z,c.z);ctx.translate(-c.x,-c.y);
   const vx0=c.x-W/2/c.z,vx1=c.x+W/2/c.z,vy0=c.y-H/2/c.z,vy1=c.y+H/2/c.z;
   PAGES.forEach((P,pi)=>{
+    if(pi>=12)return; // 开场页已去掉
     if(P.ox>vx1||P.ox+W<vx0||P.oy>vy1||P.oy+H<vy0)return;
     ctx.save();ctx.translate(P.ox,P.oy);ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
     pageBack(P,pi,t,be,c);
