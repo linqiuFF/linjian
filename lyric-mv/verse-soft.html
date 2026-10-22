@@ -110,6 +110,46 @@ function motif(S,t){
 }
 
 /* ---------- 一个场景 ---------- */
+/* ---------- 装饰层:剪纸、水印大字、柔光圆、花瓣、竖排小字、细边框 ---------- */
+const mix=(a,b,k)=>{const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),A=p(a),B=p(b);return'#'+A.map((v,i)=>Math.round(lerp(v,B[i],k)).toString(16).padStart(2,'0')).join('');};
+function paperLayers(S,t){ // 底部三层剪纸波浪,缓慢漂动,带柔和投影
+  const tones=[mix(S.bg,INK,0.06),mix(S.bg,INK,0.11),mix(S.bg,INK,0.17)];
+  [[880,60,0.0018,12,0.15],[935,46,0.0024,-18,0.25],[990,36,0.003,24,0.35]].forEach(([y0,amp,fq,sp,ph],k)=>{
+    ctx.save();ctx.shadowColor='rgba(43,33,28,.18)';ctx.shadowBlur=26;ctx.shadowOffsetY=-6;ctx.fillStyle=tones[k];
+    ctx.beginPath();ctx.moveTo(-20,H+20);
+    for(let x=-20;x<=W+20;x+=16)ctx.lineTo(x,y0+Math.sin(x*fq+t*0.25*Math.sign(sp)+S.i*1.7+ph*10)*amp+Math.sin(x*fq*2.3+ph*7)*amp*0.35);
+    ctx.lineTo(W+20,H+20);ctx.closePath();ctx.fill();ctx.restore();
+  });
+}
+function petals(S,t){ // 少量花瓣慢慢飘落
+  const r=rnd(S.i*13+3);
+  for(let k=0;k<14;k++){
+    const x0=r()*W,sp=30+r()*40,ph=r()*H,sz=8+r()*10,rot=r()*6;
+    const y=((ph+t*sp)%(H+80))-40,x=x0+Math.sin(t*0.6+k)*50;
+    ctx.save();ctx.translate(x,y);ctx.rotate(rot+t*0.8);ctx.globalAlpha=0.45;ctx.fillStyle=k%3?mix(S.bg,ACC,0.45):'#fff';
+    ctx.beginPath();ctx.ellipse(0,0,sz,sz*0.55,0,0,6.283);ctx.fill();ctx.restore();
+  }
+}
+function decorBack(S,t){
+  const kg=S.groups.find(g=>g.k),lt=t-S.ts;
+  // 水印大字
+  ctx.save();ctx.globalAlpha=0.5*clamp(lt/1.2);ctx.fillStyle=mix(S.bg,INK,0.07);ctx.font=`880px ${BOLD}`;ctx.textBaseline='middle';ctx.textAlign='left';
+  ctx.fillText(kg.s[0],W*0.5+60-lt*14,H*0.45);ctx.restore();
+  // 柔光圆
+  const k=S.key,r=260+18*Math.sin(t*1.1);
+  const g=ctx.createRadialGradient(k.x,k.y,0,k.x,k.y,r);g.addColorStop(0,mix(S.bg,ACC,0.22)+'cc');g.addColorStop(0.7,mix(S.bg,ACC,0.12)+'66');g.addColorStop(1,mix(S.bg,ACC,0.05)+'00');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(k.x,k.y,r,0,6.283);ctx.fill();
+}
+function decorFront(S,t){
+  // 竖排小字(诗集里的批注)
+  const a=t-S.t0;if(a>0){ctx.save();ctx.globalAlpha=0.6*clamp(a/1.2);ctx.fillStyle=SOFT;ctx.font=`30px ${LIGHT}`;ctx.textAlign='center';ctx.textBaseline='middle';
+    const txt=TM[S.i].flat;[...txt].forEach((c,j)=>ctx.fillText(c,W-210,230+j*44));ctx.fillRect(W-170,230-20,1,txt.length*44);ctx.restore();}
+  // 细边框 + 角标
+  ctx.save();ctx.strokeStyle='rgba(43,33,28,.28)';ctx.lineWidth=1.5;ctx.strokeRect(40,40,W-80,H-80);
+  ctx.lineWidth=3;ctx.strokeStyle='rgba(43,33,28,.55)';
+  for(const[x,y,dx,dy]of[[40,40,1,1],[W-40,40,-1,1],[40,H-40,1,-1],[W-40,H-40,-1,-1]]){ctx.beginPath();ctx.moveTo(x,y+dy*36);ctx.lineTo(x,y);ctx.lineTo(x+dx*36,y);ctx.stroke();}
+  ctx.restore();
+}
 function scene(S,t){
   const lt=t-S.t0;
   ctx.fillStyle=S.bg;ctx.fillRect(0,0,W,H);
@@ -119,6 +159,7 @@ function scene(S,t){
   // 镜头:很慢的推近
   const z=1+0.035*clamp((t-S.ts)/(S.t1-S.ts+1));
   ctx.save();ctx.translate(W/2,H/2);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
+  decorBack(S,t);paperLayers(S,t);petals(S,t);
   motif(S,t);
   S.groups.forEach(g=>{
     const a=t-g.ta+0.12;if(a<0)return;
@@ -134,6 +175,7 @@ function scene(S,t){
   const a=t-S.t0+0.4;if(a>0){ctx.save();ctx.globalAlpha=clamp(a)*0.75;ctx.fillStyle=SOFT;ctx.font=`26px ${LIGHT}`;ctx.textBaseline='middle';
     ctx.fillText(String(S.i+1).padStart(2,'0')+'  ·  '+fmt(S.t0),200,190);ctx.fillRect(200,214,1,120);ctx.restore();}
   ctx.restore();
+  decorFront(S,t);
 }
 
 /* ---------- 转场:都由细线来完成 ---------- */
@@ -179,7 +221,6 @@ function renderAt(t){
     withCtx(bufA,()=>scene(SC[k-1],t));withCtx(bufB,()=>scene(S,t));
     composite(TR[k-1],clamp((t-S.ts)/TDUR),bufA.canvas,bufB.canvas,S);
   }else withCtx(M,()=>scene(S,t));
-  M.save();M.globalCompositeOperation='multiply';M.globalAlpha=0.05;M.imageSmoothingEnabled=false;M.drawImage(GRAIN[Math.floor(t*24)%4],0,0,W,H);M.restore();
   M.drawImage(VIG,0,0);
   M.fillStyle=SOFT;M.globalAlpha=0.8;M.font=`22px ${LIGHT}`;M.textBaseline='middle';M.textAlign='left';M.fillText('迷人的危险 · Dance Flow',60,H-56);
   M.textAlign='right';M.fillText(fmt(t)+' / '+fmt(DUR_ALL),W-60,H-56);
