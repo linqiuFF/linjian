@@ -26,6 +26,6 @@ async function work(k){
 const segs=(await Promise.all([...Array(N).keys()].map(work))).filter(Boolean);
 await browser.close();
 fs.writeFileSync(path.join(tmp,'list.txt'),segs.map(s=>`file '${s}'`).join('\n'));
-execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-af',`afade=t=out:st=${(DUR-1.5).toFixed(2)}:d=1.5`,'-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
+execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-af',`afade=t=out:st=${(DUR-2).toFixed(2)}:d=2`,'-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
 fs.rmSync(tmp,{recursive:true,force:true});
 console.log('done',out);
