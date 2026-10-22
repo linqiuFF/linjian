@@ -30,6 +30,6 @@ async function work(k){
 const segs=(await Promise.all([...Array(N).keys()].map(work))).filter(Boolean);
 await browser.close();
 fs.writeFileSync(path.join(tmp,'list.txt'),segs.map(s=>`file '${s}'`).join('\n'));
-execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-ss',String(T0),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-af',T0?`afade=t=in:d=0.4,afade=t=out:st=${(DUR-0.6).toFixed(2)}:d=0.6`:`afade=t=out:st=${(DUR-2).toFixed(2)}:d=2`,'-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
+execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-ss',String(T0),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-af',(T0?`afade=t=in:d=0.4,`:'')+`afade=t=out:st=${(DUR-(DUR<40?0.6:2)).toFixed(2)}:d=${DUR<40?0.6:2}`,'-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
 fs.rmSync(tmp,{recursive:true,force:true});
 console.log('done',out);

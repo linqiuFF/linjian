@@ -20,7 +20,7 @@ canvas{width:1920px;height:1080px;display:block;cursor:pointer}
 (()=>{
 /* 完整版(0:00–1:15):每句歌词是一个满屏页面,页面在一张大画布上排成网格;
    镜头停下时画面里只有这一页,换页时跟着歌词里的动作走(滑下去、撞飞、踢走、掉下去、劈开、溢出、淹没) */
-const W=1920,H=1080,START=0,END=75,DUR_ALL=75;
+const W=1920,H=1080,START=13.955,END=75,DUR_ALL=END-START; // 从 0:14 的节拍切入,前奏只留 4 秒
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const FONT='"LJBlack","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
 const MONO='"Consolas","WenQuanYi Zen Hei Mono","Courier New",monospace';
@@ -91,40 +91,49 @@ const G=[
 ];
 G.forEach((g,k)=>{g.ta=gt(g.l,g.s)-0.04;g.no=k+1;});
 const PUNCH_T=G[5].ta+0.18,KNOCK_T=G[9].ta+0.16,FLY_T=G[7].ta+0.4;
-const SLIDE_T=gt(1,'我只能像朋友地')-0.85,DROP_T=PUNCH_T+0.25,ZOOM_T=gt(4,'你的')-0.45;
+const SLIDE_T=gt(1,'我只能像朋友地')-0.6,DROP_T=PUNCH_T+0.25,ZOOM_T=gt(4,'你的')-0.45;
 // 副歌的换页时间
-const RING_T=TM[5].t0-0.7,DROP5_T=TM[6].t0-0.8,CRACK_T=gt(6,'残缺')+0.25,FLY6_T=TM[7].t0-0.62,STAMP_T=G[21].ta+0.16,
-  WHIP7_T=TM[8].t0-0.3,SLASH_T=TM[9].t0-0.85,POUR_T=TM[10].t0-0.9,DIVE_T=TM[11].t0-0.8,MAP_T=TM[11].t1,PLAY_T=5.0,VINYL={x:560,y:-1400+520};
+const RING_T=TM[5].t0-0.55,DROP5_T=TM[6].t0-0.65,CRACK_T=gt(6,'残缺')+0.2,FLY6_T=TM[7].t0-0.5,STAMP_T=G[21].ta+0.16,
+  WHIP7_T=TM[8].t0-0.3,SLASH_T=TM[9].t0-0.65,POUR_T=TM[10].t0-0.7,DIVE_T=TM[11].t0-0.65,MAP_T=TM[11].t1,PLAY_T=START+1.75,VINYL={x:560,y:-1400+520};
 
 /* ---------- 镜头关键帧:停在页面上时只有这一页;转场时跟着元素走 ---------- */
 const PC=k=>[PAGES[k].ox+W/2,PAGES[k].oy+H/2];
 const MAPC=[2160,1940],MAPALL=[5760,540];
 const CAMK=[
-  [0,...PC(12),1.0],[3.5,...PC(12),1.04],[4.1,...PC(13),1.0],                // 开场:终端 → 播放器
-  [16.8,...PC(13),1.06],[17.6,VINYL.x,VINYL.y,3.6],[18.05,...PC(0),1.03],    // 冲进唱片中心,穿出来是第一页
+  [START,...PC(12),1.0],[START+1.0,...PC(12),1.04],[START+1.35,...PC(13),1.0], // 开场:终端 → 播放器(压缩到 4 秒)
+  [17.2,...PC(13),1.06],[17.65,VINYL.x,VINYL.y,3.6],[18.05,...PC(0),1.03],    // 冲进唱片中心,穿出来是第一页
   [SLIDE_T,...PC(0),1.06],
-  [SLIDE_T+0.85,...PC(1),1.03],[DROP_T,...PC(1),1.06],       // 跟着“滑过侧脸”往下 → 第二页
-  [DROP_T+0.6,...PC(2),1.03],[FLY_T,...PC(2),1.06],          // 跟着“想揍他一拳”掉下去 → 第三页
-  [FLY_T+0.55,...PC(3),1.03],[ZOOM_T,...PC(3),1.07],         // 追着“滚远”甩过去 → 第四页
-  [ZOOM_T+0.6,MAPC[0],MAPC[1],0.25],[ZOOM_T+0.85,MAPC[0],MAPC[1],0.25], // 拉远:主歌五页一起出现
-  [ZOOM_T+1.5,...PC(4),1.03],[RING_T,...PC(4),1.07],         // 推进到“痛”
-  [RING_T+0.65,...PC(5),1.03],[DROP5_T+0.1,...PC(5),1.06],   // 圈扩成橙色 → 最危险
-  [DROP5_T+0.75,...PC(6),1.03],[FLY6_T,...PC(6),1.06],       // “最危险”掉下去 → 残缺
-  [FLY6_T+0.6,...PC(7),1.03],[WHIP7_T,...PC(7),1.05],        // “残缺”飞出去 → 那么痛
-  [WHIP7_T+0.3,...PC(8),1.03],[SLASH_T+0.2,...PC(8),1.06],   // 冲击波往上甩 → 锐利伤悲
-  [SLASH_T+0.85,...PC(9),1.03],[POUR_T+0.2,...PC(9),1.06],   // 顺着刀口斜飞 → 等你好多年
-  [POUR_T+0.9,...PC(10),1.03],[DIVE_T+0.2,...PC(10),1.06],   // 进度条溢出往下流 → 淹灭
-  [DIVE_T+0.8,...PC(11),1.03],[MAP_T,...PC(11),1.07],        // 潜进水里 → 死结
+  [SLIDE_T+0.6,...PC(1),1.03],[DROP_T,...PC(1),1.06],        // 跟着“滑过侧脸”往下 → 第二页
+  [DROP_T+0.45,...PC(2),1.03],[FLY_T,...PC(2),1.06],         // 跟着“想揍他一拳”掉下去 → 第三页
+  [FLY_T+0.45,...PC(3),1.03],[ZOOM_T,...PC(3),1.07],         // 追着“滚远”甩过去 → 第四页
+  [ZOOM_T+0.45,MAPC[0],MAPC[1],0.25],[ZOOM_T+0.6,MAPC[0],MAPC[1],0.25], // 拉远:主歌五页一起出现
+  [ZOOM_T+1.05,...PC(4),1.03],[RING_T,...PC(4),1.07],        // 推进到“痛”
+  [RING_T+0.5,...PC(5),1.03],[DROP5_T+0.05,...PC(5),1.06],   // 圈扩成橙色 → 最危险
+  [DROP5_T+0.55,...PC(6),1.03],[FLY6_T,...PC(6),1.06],       // “最危险”掉下去 → 残缺
+  [FLY6_T+0.45,...PC(7),1.03],[WHIP7_T,...PC(7),1.05],       // “残缺”飞出去 → 那么痛
+  [WHIP7_T+0.3,...PC(8),1.03],[SLASH_T+0.15,...PC(8),1.06],  // 冲击波往上甩 → 锐利伤悲
+  [SLASH_T+0.6,...PC(9),1.03],[POUR_T+0.15,...PC(9),1.06],   // 顺着刀口斜飞 → 等你好多年
+  [POUR_T+0.65,...PC(10),1.03],[DIVE_T+0.15,...PC(10),1.06], // 进度条溢出往下流 → 淹灭
+  [DIVE_T+0.6,...PC(11),1.03],[MAP_T,...PC(11),1.07],        // 潜进水里 → 死结
   [MAP_T+1.0,MAPALL[0],MAPALL[1],0.152],[END,MAPALL[0],MAPALL[1],0.142]]; // 结尾:全片所有页面铺满一面墙
+// 页内推近:歌词出齐后卡着节拍推到关键词上,下一次转场再从这里带走
+const nearBeat=t=>{let best=t,d=1e9;for(const b of BEATS){const x=Math.abs(b-t);if(x<d){d=x;best=b;}}return d<0.25?best:t;};
+const PUNCH={};
+[[0,[700,640],G[2].ta,SLIDE_T],[1,[1100,700],G[4].ta,DROP_T],[3,[900,420],G[10].ta,ZOOM_T],[4,[420,690],G[12].ta,RING_T],
+ [8,[760,800],G[24].ta,SLASH_T],[9,[900,470],G[26].ta,POUR_T],[11,[860,700],G[30].ta,MAP_T]].forEach(([pi,[fx,fy],last,leave])=>{
+  const tp=nearBeat(last+0.7);if(leave-tp>=0.8)PUNCH[pi]={t:tp,x:PAGES[pi].ox+fx,y:PAGES[pi].oy+fy};});
+ // 结尾:全片所有页面铺满一面墙
 function cam(t){
   let k=0;while(k<CAMK.length-2&&CAMK[k+1][0]<=t)k++;
   const a=CAMK[k],b=CAMK[k+1],p=eIO(clamp((t-a[0])/(b[0]-a[0])));
   const moving=Math.hypot(a[1]-b[1],a[2]-b[2])>1;
   const z=moving?Math.exp(lerp(Math.log(a[3]),Math.log(b[3]),p)):lerp(a[3],b[3],clamp((t-a[0])/(b[0]-a[0])));
   const dr=moving?0:1;
-  const x=lerp(a[1],b[1],p)+Math.sin(t*0.6)*6*dr,y=lerp(a[2],b[2],p)+Math.cos(t*0.5)*4*dr;
+  let x=lerp(a[1],b[1],p)+Math.sin(t*0.6)*6*dr,y=lerp(a[2],b[2],p)+Math.cos(t*0.5)*4*dr,zz=z;
+  const pa=PAGES.findIndex(P=>Math.abs(P.ox+W/2-a[1])<1&&Math.abs(P.oy+H/2-a[2])<1),pu=PUNCH[pa];
+  if(pu&&t>pu.t){let e=eOut(clamp((t-pu.t)/0.25));if(moving)e*=1-eIO(clamp(p*2.5));x+=(pu.x-x)*0.3*e;y+=(pu.y-y)*0.3*e;zz*=1+0.12*e;}
   let pk=0,best=1e18;PAGES.forEach((P,i)=>{const d=Math.hypot(P.ox+W/2-x,P.oy+H/2-y);if(d<best){best=d;pk=i;}});
-  return{x,y,z,k:pk};
+  return{x,y,z:zz,k:pk};
 }
 
 /* ---------- 绘图工具 ---------- */
@@ -164,7 +173,7 @@ const COLLAGE=PAGES.map((P,pi)=>{
 function collage(P,pi,t,be){
   const dark=P.dark,fg=dark?C.paper:C.ink,acc=pi===3?C.orange:dark?C.orange:C.teal;
   for(const it of COLLAGE[pi]){
-    const bob=Math.sin(t*0.8+it.ph)*6,pop=(it.type===3||it.type===8)?1+0.18*be.pulse:1;
+    const bob=Math.sin(t*0.8+it.ph)*6,pop=(it.type===3||it.type===8||it.type===2)?1+0.3*be.pulse:1;
     ctx.save();ctx.translate(it.x+it.w/2,it.y+it.h/2+bob);ctx.rotate(it.rot);ctx.scale(pop,pop);ctx.translate(-it.w/2,-it.h/2);
     const w=it.w,h=it.h;ctx.globalAlpha=0.9;
     switch(it.type){
@@ -189,7 +198,7 @@ const ANCH=[[150,170],[W-170,150],[W-130,H/2+60],[170,H-170],[W-330,H-150],[W/2+
 function shapes(P,pi,t,be){
   const r=rnd(pi*17+5),cols=P.dark?[C.orange,C.teal===P.bg?C.paper:C.teal,C.paper]:[C.orange,C.teal,C.ink];
   ANCH.forEach(([x,y],k)=>{const type=Math.floor(r()*6),sz=50+r()*70,dir=r()<0.5?-1:1,ph=r()*6;
-    shadowShape(type,x+Math.sin(t*0.7+ph)*14,y+Math.cos(t*0.6+ph)*12,sz*(1+0.15*be.pulse),cols[k%3],t*0.5*dir+ph,Math.max(7,sz*0.12),P.dark);});
+    shadowShape(type,x+Math.sin(t*0.7+ph)*14,y+Math.cos(t*0.6+ph)*12,sz*(1+0.28*be.pulse),cols[k%3],t*0.5*dir+ph,Math.max(7,sz*0.12),P.dark);});
 }
 
 /* ---------- 页面背景和各页的专属道具 ---------- */
@@ -245,7 +254,7 @@ function pageBack(P,pi,t,be,c){
 /* 页面专属道具(前景层,画在歌词上面) */
 function pageFront(P,pi,t,be){
   if(pi===4&&t>RING_T){ // “痛”外面的圈扩成一整片橙色
-    const r=2600*eIO(clamp((t-RING_T)/0.6));ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(402,690,r,0,6.283);ctx.fill();
+    const r=2600*eIO(clamp((t-RING_T)/0.45));ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(402,690,r,0,6.283);ctx.fill();
     ctx.strokeStyle=C.paper;ctx.lineWidth=10;ctx.beginPath();ctx.arc(402,690,r,0,6.283);ctx.stroke();}
   if(pi===7&&t>STAMP_T){ // 红章砸下的冲击波
     const a=t-STAMP_T;for(let k=0;k<3;k++){const r=(a-k*0.08)*2400;if(r<=0)continue;ctx.strokeStyle=k%2?C.orange:C.paper;ctx.lineWidth=14-k*3;ctx.globalAlpha=clamp(1-r/2200);
@@ -256,10 +265,10 @@ function pageFront(P,pi,t,be){
     ctx.strokeStyle='#fff';ctx.lineWidth=26;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(lerp(x0,x1,p),lerp(y0,y1,p));ctx.stroke();
     ctx.strokeStyle=C.orange;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x0,y0+24);ctx.lineTo(lerp(x0,x1,p),lerp(y0,y1,p)+24);ctx.stroke();}
   if(pi===9&&t>POUR_T){ // 进度条溢出,往下流
-    const a=t-POUR_T,len=eIn(clamp(a/0.7))*600;ctx.fillStyle=C.orange;ctx.fillRect(1760,810,46,len+12);
+    const a=t-POUR_T,len=eIn(clamp(a/0.5))*600;ctx.fillStyle=C.orange;ctx.fillRect(1760,810,46,len+12);
     ctx.beginPath();ctx.arc(1783,820+len,30,0,6.283);ctx.fill();ctx.fillRect(1640,712,140,86);}
   if(pi===10){ // 水位上涨,把字淹住;换页时漫满整页
-    const t0=TM[10].t0-0.3,base=lerp(H+30,640,eIO(clamp((t-t0)/(TM[10].t1-TM[10].t0)))),lv=t>DIVE_T?lerp(base,-80,eIO(clamp((t-DIVE_T)/0.4))):base;
+    const t0=TM[10].t0-0.3,base=lerp(H+30,640,eIO(clamp((t-t0)/(TM[10].t1-TM[10].t0)))),lv=t>DIVE_T?lerp(base,-80,eIO(clamp((t-DIVE_T)/0.35))):base;
     if(t>POUR_T+0.4&&t<DIVE_T+0.3){ctx.fillStyle=C.orange;ctx.fillRect(1760,-20,46,lv+40);}
     const wave=x=>lv+Math.sin(x*0.008+t*2)*16+Math.sin(x*0.021-t*1.3)*7;
     ctx.fillStyle='rgba(47,111,115,.93)';ctx.beginPath();ctx.moveTo(0,H+20);for(let x=0;x<=W;x+=20)ctx.lineTo(x,wave(x));ctx.lineTo(W,H+20);ctx.closePath();ctx.fill();
@@ -272,26 +281,26 @@ function cursor(x,y,press=0){
   const s=6*(1-0.12*press);for(let r=0;r<A.length;r++)for(let c=0;c<10;c++){const v=A[r][c];if(v==='.')continue;ctx.fillStyle=v==='W'?'#fff':'#111';ctx.fillRect(x+c*s,y+r*s,s,s);}
 }
 function introTerm(t){
+  const lt=t-START;
   ctx.fillStyle='#1b1512';ctx.fillRect(0,0,W,56);
   ctx.fillStyle=C.ink;ctx.beginPath();ctx.roundRect(520,12,240,44,10);ctx.fill();ctx.fillStyle=C.orange;ctx.fillRect(536,27,14,14);
   ctx.font=`900 22px ${FONT}`;ctx.fillStyle='#ddd';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('Lin · play',562,34);
   const prompt='PS D:\\Lin> ',cmd='play 迷人的危险.flac';
-  ctx.font=`36px ${MONO}`;ctx.textBaseline='alphabetic';ctx.fillStyle=C.gray;ctx.fillText(prompt,60,170);
-  const pw=ctx.measureText(prompt).width,typed=Math.floor(clamp((t-0.6)/1.5)*cmd.length),sh=cmd.slice(0,typed);
-  ctx.fillStyle=C.orange;ctx.fillText(sh,60+pw,170);
-  if(t<2.3&&Math.floor(t*2.5)%2===0)ctx.fillRect(60+pw+ctx.measureText(sh).width+4,136,18,40);
-  ctx.font=`32px ${MONO}`;
-  if(t>2.2){ctx.fillStyle=C.paper;ctx.fillText('♪ Dance Flow — 迷人的危险',60,240);}
-  if(t>2.23){ctx.fillStyle=C.gray;ctx.fillText(CREDITS[1],60,295);}
-  if(t>3.48){ctx.fillStyle=C.gray;ctx.fillText(CREDITS[2],60,350);}
-  if(t>2.8){ctx.fillStyle=C.orange;ctx.fillText('[loading] '+'█'.repeat(Math.floor(clamp((t-2.8)/0.9)*24)),60,410);}
+  ctx.font=`44px ${MONO}`;ctx.textBaseline='alphabetic';ctx.fillStyle=C.gray;ctx.fillText(prompt,80,420);
+  const pw=ctx.measureText(prompt).width,typed=Math.floor(clamp((lt-0.05)/0.5)*cmd.length),sh=cmd.slice(0,typed);
+  ctx.fillStyle=C.orange;ctx.fillText(sh,80+pw,420);
+  if(lt<0.6)ctx.fillRect(80+pw+ctx.measureText(sh).width+4,380,22,48);
+  ctx.font=`36px ${MONO}`;
+  if(lt>0.6){ctx.fillStyle=C.paper;ctx.fillText('♪ Dance Flow — 迷人的危险',80,500);}
+  if(lt>0.68){ctx.fillStyle=C.gray;ctx.fillText(CREDITS[1]+'    '+CREDITS[2],80,560);}
+  if(lt>0.72){ctx.fillStyle=C.orange;ctx.fillText('[loading] '+'█'.repeat(Math.floor(clamp((lt-0.72)/0.3)*24)),80,620);}
 }
 function introPlayer(t,be){
-  const lt=t-3.8,x=250,y=lerp(H+40,210,eOut(clamp(lt/0.55))),w=1420,h=620;
+  const lt=t-(START+1.15),x=250,y=lerp(H+40,210,eOut(clamp(lt/0.35))),w=1420,h=620;
   shapes(PAGES[13],13,t,be);
   ctx.fillStyle='#000';ctx.beginPath();ctx.roundRect(x+18,y+18,w,h,30);ctx.fill();
   ctx.fillStyle=C.paper;ctx.beginPath();ctx.roundRect(x,y,w,h,30);ctx.fill();
-  const vx=x+310,vy=y+310,spin=lt>1.25?(lt-1.25)*2.4:0;
+  const vx=x+310,vy=y+310,spin=t>PLAY_T?(t-PLAY_T)*3.2+(t>17.2?eOut(clamp((t-17.2)/0.45))*6:0):0;
   ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(vx,vy,240,0,6.283);ctx.fill();
   ctx.strokeStyle='rgba(239,228,214,.10)';ctx.lineWidth=2;for(let r=90;r<235;r+=14){ctx.beginPath();ctx.arc(vx,vy,r,0,6.283);ctx.stroke();}
   ctx.save();ctx.translate(vx,vy);ctx.rotate(spin);ctx.strokeStyle='rgba(239,228,214,.35)';ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,200,-0.5,0.3);ctx.stroke();ctx.beginPath();ctx.arc(0,0,160,2.6,3.3);ctx.stroke();
@@ -299,15 +308,15 @@ function introPlayer(t,be){
   ctx.fillStyle=C.paper;ctx.beginPath();ctx.arc(vx,vy,12,0,6.283);ctx.fill();
   const tx=x+630;ctx.font=`900 120px ${FONT}`;ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle=C.ink;ctx.fillText('迷人的危险',tx,y+150);
   ctx.fillStyle=C.gray;ctx.font=`900 44px ${FONT}`;ctx.fillText('Dance Flow',tx,y+240);
-  const by=y+330,bw=w-630-80;ctx.fillStyle='rgba(43,33,28,.18)';ctx.fillRect(tx,by,bw,10);ctx.fillStyle=C.orange;ctx.fillRect(tx,by,bw*clamp(t/DUR_ALL),10);
-  ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(tx+bw*clamp(t/DUR_ALL),by+5,14,0,6.283);ctx.fill();
-  ctx.font=`700 26px ${MONO}`;ctx.fillStyle=C.gray;ctx.fillText(fmt(t),tx,by+48);ctx.textAlign='right';ctx.fillText(fmt(DUR_ALL),tx+bw,by+48);
+  const by=y+330,bw=w-630-80;ctx.fillStyle='rgba(43,33,28,.18)';ctx.fillRect(tx,by,bw,10);const pr=clamp((t-START)/DUR_ALL);ctx.fillStyle=C.orange;ctx.fillRect(tx,by,bw*pr,10);
+  ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(tx+bw*pr,by+5,14,0,6.283);ctx.fill();
+  ctx.font=`700 26px ${MONO}`;ctx.fillStyle=C.gray;ctx.fillText(fmt(t-START),tx,by+48);ctx.textAlign='right';ctx.fillText(fmt(DUR_ALL),tx+bw,by+48);
   const cy=y+455,pc=tx+bw/2,playing=t>PLAY_T+0.15,press=t>PLAY_T&&t<PLAY_T+0.2;
   ctx.fillStyle=C.ink;for(const s of[-1,1]){const bx=pc+s*170;ctx.beginPath();ctx.moveTo(bx-s*12,cy-24);ctx.lineTo(bx-s*12,cy+24);ctx.lineTo(bx+s*22,cy);ctx.closePath();ctx.fill();ctx.fillRect(bx+(s>0?24:-30),cy-24,6,48);}
   ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(pc,cy,press?52:58,0,6.283);ctx.fill();ctx.fillStyle=C.paper;
   if(playing){ctx.fillRect(pc-20,cy-24,13,48);ctx.fillRect(pc+7,cy-24,13,48);}else{ctx.beginPath();ctx.moveTo(pc-14,cy-26);ctx.lineTo(pc-14,cy+26);ctx.lineTo(pc+26,cy);ctx.closePath();ctx.fill();}
-  const n=44,ww=bw/n;for(let k=0;k<n;k++){const v=playing?(0.3+0.7*(0.5+0.5*Math.sin(t*3+k*0.7)))*(0.35+0.65*be.pulse):0.08;ctx.fillStyle=k/n<t/DUR_ALL?C.orange:'rgba(43,33,28,.35)';ctx.fillRect(tx+k*ww,y+560-v*50,ww*0.55,v*50);}
-  if(t<PLAY_T+1){const cp=eOut(clamp((t-(PLAY_T-0.8))/0.7));cursor(lerp(W+60,pc,cp),lerp(H+60,cy,cp),press?1:0);}
+  const n=44,ww=bw/n;for(let k=0;k<n;k++){const v=playing?(0.3+0.7*(0.5+0.5*Math.sin(t*3+k*0.7)))*(0.35+0.65*be.pulse):0.08;ctx.fillStyle=k/n<(t-START)/DUR_ALL?C.orange:'rgba(43,33,28,.35)';ctx.fillRect(tx+k*ww,y+560-v*50,ww*0.55,v*50);}
+  if(t<PLAY_T+0.6){const cp=eOut(clamp((t-(PLAY_T-0.45))/0.4));cursor(lerp(W+60,pc,cp),lerp(H+60,cy,cp),press?1:0);}
 }
 function toggle(t){ // 「朋友/恋人」开关:两次想拨到恋人,都弹回来
   const ta=gt(1,'朋友')-0.2;if(t<ta)return;
@@ -338,13 +347,13 @@ function burst(x,y,a,col,seed){if(a<0||a>0.6)return;const r=rnd(seed);ctx.fillSt
   for(let k=0;k<10;k++){const ang=r()*6.283,v=300+r()*500,sz=10+r()*16,d=v*(1-Math.exp(-6*a))/6;ctx.globalAlpha=1-a/0.6;ctx.fillRect(x+Math.cos(ang)*d,y+Math.sin(ang)*d,sz,sz);}ctx.globalAlpha=1;}
 function pose(g,t){
   const a=t-g.ta;let x=g.x,y=g.y,s=1,sx=1,sy=1,rot=0,al=1;
-  if(g.enter==='slideL'){const p=eOut(clamp(a/0.35));x-=(1-p)*420;al=clamp(a/0.12);}
-  else if(g.enter==='drop'){const p=clamp(a/0.4);y-=(1-eBack(p))*320;al=clamp(a/0.1);}
+  if(g.enter==='slideL'){const p=eOut(clamp(a/0.25));x-=(1-p)*420;al=clamp(a/0.1);}
+  else if(g.enter==='drop'){const p=clamp(a/0.3);y-=(1-eBack(p))*320;al=clamp(a/0.08);}
   else if(g.enter==='punchR'){const p=clamp(a/0.18);x+=(1-eOut(p))*1200;if(a>0.18){const q=eOut(clamp((a-0.18)/0.25));sx=lerp(1.28,1,q);sy=lerp(0.78,1,q);}}
   else if(g.enter==='scaleIn'){s=lerp(1.9,1,eOut(clamp(a/0.3)));al=clamp(a/0.1);}
   else if(g.enter==='slam'){s=lerp(2.4,1,eOut(clamp(a/0.16)));al=clamp(a/0.06);}
   if(g.slide){const k=eIO(clamp((t-g.ta-0.5)/(TM[0].t1-g.ta-0.5)));x+=k*220;y+=k*150;rot+=k*0.14;}
-  if(g.fly){const f=t-FLY_T;if(f>0){const p=clamp(f/0.55);x+=eIn(p)*1800;rot+=p*0.55;}}
+  if(g.fly){const f=t-FLY_T;if(f>0){const p=clamp(f/0.45);x+=eIn(p)*1800;rot+=p*0.55;}}
   if(g.knock){const k=t-KNOCK_T;if(k>0){x-=k*300;y+=k*k*1900;rot-=k*2.6;}}
   return{x,y,s,sx,sy,rot,al};
 }
@@ -402,29 +411,29 @@ function worldPose(g,t){
   if(gi===2){ // 滑过侧脸:在第一页里往下滑,转场时带着镜头滑进第二页,随即从右下方滑出并淡掉
     const P1=PAGES[1];
     if(t<=SLIDE_T){const q=pose(g,t);return{...q,x:q.x+P.ox,y:q.y+P.oy};}
-    const q0=pose(g,SLIDE_T),sx0=q0.x+P.ox,sy0=q0.y+P.oy,f=clamp((t-SLIDE_T)/0.85);
+    const q0=pose(g,SLIDE_T),sx0=q0.x+P.ox,sy0=q0.y+P.oy,f=clamp((t-SLIDE_T)/0.6);
     const ex=P1.ox+2050,ey=P1.oy+760;
     return{x:lerp(sx0,ex,eIn(f)*0.55+f*0.45),y:lerp(sy0,ey,eIO(f)),s:1,sx:1,sy:1,rot:lerp(q0.rot,0.35,f),al:1-clamp((f-0.6)/0.35)};}
   if(gi===5){ // 想揍他一拳:砸进第二页撞飞开关,再掉进第三页
     const P1=PAGES[1],q=pose(g,t),a={x:P1.ox+400+(q.x-g.x),y:P1.oy+820};
     if(t<DROP_T)return{...q,x:a.x,y:a.y};
-    const f=eIO(clamp((t-DROP_T)/0.6));return{x:lerp(a.x,P.ox+g.x,f),y:lerp(a.y,P.oy+g.y,f),s:1,sx:1,sy:1,rot:Math.sin(f*Math.PI)*0.12,al:1};}
+    const f=eIO(clamp((t-DROP_T)/0.45));return{x:lerp(a.x,P.ox+g.x,f),y:lerp(a.y,P.oy+g.y,f),s:1,sx:1,sy:1,rot:Math.sin(f*Math.PI)*0.12,al:1};}
   if(gi===7){ // 滚远:被踢出第三页,飞进第四页右下角撞住
     const q=pose(g,t),f=t-FLY_T,P3=PAGES[3];
     if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
-    const p=clamp(f/0.55),x=lerp(P.ox+g.x,P3.ox+1340,eIn(p)*0.85+p*0.15),y=lerp(P.oy+g.y,P3.oy+830,p*p);
-    const b=clamp((f-0.55)/0.4);return{x:x,y:y-(p>=1?Math.sin(b*Math.PI)*60*(1-b):0),s:1,sx:1,sy:1,rot:p<1?p*1.2:lerp(1.2,0.2,eOut(b)),al:1};}
+    const p=clamp(f/0.45),x=lerp(P.ox+g.x,P3.ox+1340,eIn(p)*0.85+p*0.15),y=lerp(P.oy+g.y,P3.oy+830,p*p);
+    const b=clamp((f-0.45)/0.4);return{x:x,y:y-(p>=1?Math.sin(b*Math.PI)*60*(1-b):0),s:1,sx:1,sy:1,rot:p<1?p*1.2:lerp(1.2,0.2,eOut(b)),al:1};}
   if(gi===15){ // 最危险:掉出橙色页,落进下一页后淡掉
-    const q=pose(g,t),f=clamp((t-DROP5_T)/0.85);if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
+    const q=pose(g,t),f=clamp((t-DROP5_T)/0.65);if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
     return{...q,x:q.x+P.ox+f*160,y:q.y+P.oy+eIn(f)*1500,rot:q.rot+f*0.35,al:1-clamp((f-0.65)/0.3)};}
   if(gi===18){ // 残缺:裂开后飞向右边一页,随即淡掉
-    const q=pose(g,t),f=clamp((t-FLY6_T)/0.75);if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
+    const q=pose(g,t),f=clamp((t-FLY6_T)/0.55);if(f<=0)return{...q,x:q.x+P.ox,y:q.y+P.oy};
     return{...q,x:q.x+P.ox+eIn(f)*2600,y:q.y+P.oy-Math.sin(f*Math.PI)*120,rot:q.rot+f*0.5,al:1-clamp((f-0.7)/0.25)};}
   const q=pose(g,t);return{...q,x:q.x+P.ox,y:q.y+P.oy};
 }
 function drawTraveler(g,t){
   if(t<g.ta)return;
-  const gi=G.indexOf(g),P=PAGES[gi===7&&t>FLY_T+0.3?3:gi===5&&t<DROP_T+0.3?1:gi===2&&t>SLIDE_T+0.5?1:g.p];
+  const gi=G.indexOf(g),P=PAGES[gi===7&&t>FLY_T+0.25?3:gi===5&&t<DROP_T+0.3?1:gi===2&&t>SLIDE_T+0.5?1:g.p];
   const adv=g.size*0.98,w=[...g.s].length*adv;
   for(let k=3;k>=1;k--){const A=worldPose(g,t-0.045*k),B=worldPose(g,t);if(Math.hypot(A.x-B.x,A.y-B.y)<6)continue;
     ctx.save();ctx.globalAlpha=0.35/k*A.al;ctx.translate(A.x+w/2,A.y);ctx.rotate(A.rot);ctx.translate(-w/2,0);ctx.font=`900 ${g.size}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
@@ -461,8 +470,8 @@ function renderAt(t){
   ctx.fillStyle=ink;ctx.globalAlpha=0.6;ctx.font=`900 22px ${FONT}`;ctx.textAlign='left';ctx.textBaseline='middle';
   for(let k=0;k<3;k++){const vv=0.35+0.65*Math.abs(Math.sin(t*3+k*1.7))*(0.4+0.6*be.pulse);ctx.fillRect(40+k*9,44-vv*22,5,vv*22);}
   ctx.fillText('迷人的危险 — Dance Flow',78,34);
-  ctx.font=`700 20px ${MONO}`;ctx.fillText(fmt(t)+' / '+fmt(DUR_ALL),40,H-44);
-  ctx.globalAlpha=0.18;ctx.fillRect(40,H-24,W-80,4);ctx.globalAlpha=0.85;ctx.fillRect(40,H-24,(W-80)*t/DUR_ALL,4);ctx.globalAlpha=1;
+  ctx.font=`700 20px ${MONO}`;ctx.fillText(fmt(t-START)+' / '+fmt(DUR_ALL),40,H-44);
+  ctx.globalAlpha=0.18;ctx.fillRect(40,H-24,W-80,4);ctx.globalAlpha=0.85;ctx.fillRect(40,H-24,(W-80)*(t-START)/DUR_ALL,4);ctx.globalAlpha=1;
   if(t>MAP_T+0.6){ // 结尾:全片页面铺满一面墙,中间浮出标题
     const p=eOut(clamp((t-MAP_T-0.6)/0.5));ctx.save();ctx.globalAlpha=p;ctx.translate(W/2,H/2);ctx.scale(lerp(0.9,1,p),lerp(0.9,1,p));
     ctx.fillStyle='#000';ctx.beginPath();ctx.roundRect(-520+16,-200+16,1040,400,28);ctx.fill();ctx.fillStyle=C.paper;ctx.beginPath();ctx.roundRect(-520,-200,1040,400,28);ctx.fill();
