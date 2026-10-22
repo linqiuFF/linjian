@@ -35,7 +35,15 @@ const bufP=mk(),bufN=mk();
 const FONT='"LJBlack","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
 const MONO='"Consolas","WenQuanYi Zen Hei Mono","Courier New",monospace';
 /* 配色:黑 / 米白 / 陶土橙 / 蓝,红色只给印章 */
-const C={ink:'#111111',paper:'#ecebe6',orange:'#d97757',blue:'#2b59f0',red:'#e0362c',gray:'#8a8883',dark2:'#1c1c1c',line:'#3a3a3a'};
+const PALS={
+  navy:{ink:'#0f1a2b',paper:'#f3efe6',orange:'#ff5b3a',blue:'#4d8dff',red:'#e8322b',gray:'#8b8f99',dark2:'#17243a',line:'#2c3b55'},
+  rose:{ink:'#1d1a1c',paper:'#f4e9e6',orange:'#e8445a',blue:'#5b6cff',red:'#d6283c',gray:'#9a8f8f',dark2:'#2a2629',line:'#3d383b'},
+  forest:{ink:'#10241c',paper:'#eeede4',orange:'#ff7a2f',blue:'#2e7d5b',red:'#e0362c',gray:'#8a8f86',dark2:'#183126',line:'#2a4537'},
+  violet:{ink:'#1c1530',paper:'#ece8f3',orange:'#ff5f7e',blue:'#7a6bff',red:'#e2304a',gray:'#8e88a0',dark2:'#261d40',line:'#3a3057'},
+  mono:{ink:'#111111',paper:'#f2f2f2',orange:'#ff3b30',blue:'#111111',red:'#ff3b30',gray:'#8a8a8a',dark2:'#1c1c1c',line:'#3a3a3a'},
+  milktea:{ink:'#2b211c',paper:'#efe4d6',orange:'#c8553d',blue:'#2f6f73',red:'#b8322a',gray:'#9a8b7e',dark2:'#3a2d26',line:'#4d3e35'},
+};
+const C=PALS[(location.search.match(/pal=(\w+)/)||[])[1]]||PALS.navy;
 const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const eOut=t=>1-Math.pow(1-t,3);
