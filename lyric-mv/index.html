@@ -27,7 +27,7 @@ canvas{width:1920px;height:1080px;display:block}
 <script src="data.js"></script>
 <script>
 (()=>{
-const W=1920,H=1080,DUR=206.01;
+const W=1920,H=1080,DUR=66.0; // 只用到 1:06
 const cv=document.getElementById('c'),M=cv.getContext('2d');
 let ctx=M; // 当前绘制目标;转场时会临时切到离屏画布
 const mk=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;return c.getContext('2d');};
@@ -43,7 +43,7 @@ const PALS={
   mono:{ink:'#111111',paper:'#f2f2f2',orange:'#ff3b30',blue:'#111111',red:'#ff3b30',gray:'#8a8a8a',dark2:'#1c1c1c',line:'#3a3a3a'},
   milktea:{ink:'#2b211c',paper:'#efe4d6',orange:'#c8553d',blue:'#2f6f73',red:'#b8322a',gray:'#9a8b7e',dark2:'#3a2d26',line:'#4d3e35'},
 };
-const C=PALS[(location.search.match(/pal=(\w+)/)||[])[1]]||PALS.navy;
+const C=PALS[(location.search.match(/pal=(\w+)/)||[])[1]]||PALS.milktea;
 const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const eOut=t=>1-Math.pow(1-t,3);
@@ -66,9 +66,10 @@ function beatInfo(t){
 
 /* ---------- 每句的场景:用界面道具讲故事 ---------- */
 const SPEC=[
- ['type','ink','l'],['toggle','paper'],['dialog','ink',{title:'warning.exe',btn:['确定','取消'],click:0}],['stamp','paper',{word:'不配'}],['type','paper','z'],
- ['split','paper','c'],['type','ink','c',{crack:1}],['stamp','ink',{word:'痛'}],['type','paper','l'],
- ['progress','paper'],['overflow','ink'],['term','ink'],
+ ['type','ink','l',{enter:'side',deco:'marker'}],['toggle','paper',{enter:'drop'}],['dialog','ink',{title:'warning.exe',btn:['确定','取消'],click:0,enter:'scale'}],
+ ['stamp','paper',{word:'不配',enter:'wipe'}],['type','paper','z',{enter:'flip',deco:'circle'}],
+ ['split','paper','c',{enter:'scale'}],['type','ink','c',{crack:1,enter:'drop'}],['stamp','ink',{word:'痛',enter:'wipe'}],['type','paper','l',{enter:'side',deco:'underline'}],
+ ['progress','paper',{enter:'flip',deco:'marker'}],['overflow','ink'],['term','ink'],
  ['type','paper','z'],['stamp','ink',{word:'抱歉'}],['split','paper','l'],['chat','paper'],['type','ink','c'],['type','paper','l'],
  ['split','paper','c'],['type','ink','c',{crack:1}],['stamp','paper',{word:'痛'}],['type','ink','z'],
  ['notify','ink'],['type','paper','l'],['term','ink'],
@@ -80,7 +81,7 @@ const TR=['wipe','slide','zoom','cut','wipe', 'bars','cut','cut','slide', 'wipe'
  'slide','cut','bars','wipe','slide','zoom', 'bars','cut','cut','slide', 'zoom','wipe','cut',
  'bars','cut','cut','cut','cut','cut','cut', 'zoom','wipe', 'bars','cut','cut','slide', 'zoom','wipe','cut','bars'];
 const TD={wipe:.5,slide:.4,zoom:.4,bars:.55,cut:.12};
-const KEY=['危险','残缺','痛','滚远','淹灭','死结','欺骗','抱歉','泪水','绝望','孤单','暗恋','特别','迷人','沉重','不配','抉择'];
+const KEY=['危险','残缺','痛','滚远','淹灭','死结','欺骗','抱歉','泪水','绝望','孤单','暗恋','特别','迷人','沉重','不配','抉择','伤悲'];
 
 function splitRows(s){
   const out=[];
@@ -106,13 +107,14 @@ function splitRows(s){
 }
 
 /* ---------- 预处理:每个字的演唱时间 ---------- */
-const LN=LYRICS.map((ly,i)=>{
+const LYR=LYRICS.filter(l=>l.t<DUR-1);
+const LN=LYR.map((ly,i)=>{
   const [tpl,bg,lay='l',opt={}]=SPEC[i]||['type','ink','c'];
   const o=typeof lay==='object'?lay:opt,mode=typeof lay==='string'?lay:'l';
   const flat=ly.s.replace(/\s/g,''),nch=flat.length;
   const em=new Array(nch).fill(false);let hero=null;
   for(const k of KEY){let p=-1;while((p=flat.indexOf(k,p+1))>=0){for(let j=0;j<k.length;j++)em[p+j]=true;if(!hero||k.length>hero.w.length)hero={w:k,g:p};}}
-  const nextT=LYRICS[i+1]?LYRICS[i+1].t:DUR;
+  const nextT=LYR[i+1]?LYR[i+1].t:DUR;
   const t1=nextT-ly.t<=7.6?nextT:ly.t+6.4;
   const pause=[];{let g=0,sp=false;for(const c of ly.s){if(/\s/.test(c)){sp=g>0;continue;}pause[g++]=sp;sp=false;}}
   const u=[];{let a=0;for(let g=0;g<nch;g++){if(pause[g])a+=1.2;u[g]=a;a+=1;}}
@@ -135,30 +137,61 @@ function rowsLayout(L,size,mode,cx,cy,x0=150,x1=W-150,lhK=1.18){
     if(mode==='c'||(mode==='z'&&R===1))x=cx-rw/2;else if(mode==='z')x=k%2?x1-rw:x0;else if(mode==='r')x=x1-rw;else x=x0;
     return{x,y:cy-R*lh/2+lh*(k+0.5),adv,lh,rw};});
 }
-/* 歌词:每个词组唱到时整块从遮罩里滑出;关键词唱到时长出 3D 阴影 */
+/* 歌词:每个词组唱到时整块进场(6 种进场方式);关键词唱到时强调(4 种强调方式) */
 function drawRows(L,lt,lay,size,face,acc,ext,opt={}){
+  const enter=L.o.enter||'slide',deco=L.o.deco||'3d';
   ctx.save();ctx.font=`900 ${size}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
   L.rows.forEach((row,k)=>{
-    const P=lay[k],tk=L.rowT[k]-0.06,p=eOut(clamp((lt-tk)/0.24));if(p<=0)return;
+    const P=lay[k],tk=L.rowT[k]-0.06;if(lt<tk)return;
+    const dur=enter==='wipe'?0.45:0.32,p=clamp((lt-tk)/dur),rcx=P.x+P.rw/2;
+    // 关键词连续段
+    const runs=[];row.forEach((ch,j)=>{if(!ch.emph)return;const r=runs[runs.length-1];if(r&&r[1]===j-1)r[1]=j;else runs.push([j,j]);});
     ctx.save();
-    if(p<1){ctx.beginPath();ctx.rect(P.x-size*0.3,P.y-P.lh*0.62,P.rw+size*0.6,P.lh*1.24);ctx.clip();}
-    const off=(1-p)*P.lh*0.9;
+    let bar=null;
+    if(enter==='slide'){if(p<1){ctx.beginPath();ctx.rect(P.x-size*0.3,P.y-P.lh*0.62,P.rw+size*0.6,P.lh*1.24);ctx.clip();}ctx.translate(0,(1-eOut(p))*P.lh*0.9);}
+    else if(enter==='drop'){ctx.globalAlpha=clamp(p*4);ctx.translate(0,-(1-eBack(p))*260);}
+    else if(enter==='scale'){const s=lerp(1.9,1,eOut(p));ctx.globalAlpha=clamp(p*3);ctx.translate(rcx,P.y);ctx.scale(s,s);ctx.translate(-rcx,-P.y);}
+    else if(enter==='side'){ctx.globalAlpha=clamp(p*3);ctx.translate((k%2?1:-1)*(1-eOut(p))*700,0);}
+    else if(enter==='flip'){ctx.translate(0,P.y);ctx.scale(1,Math.max(0.001,eBack(p)));ctx.translate(0,-P.y);}
+    else if(enter==='wipe'){ // 色条先盖住,再收走露出字
+      const x0=P.x-size*0.25,w=P.rw+size*0.5,a=eIO(clamp(p/0.5)),b=eIO(clamp((p-0.5)/0.5));
+      bar=[x0+w*b,P.y-P.lh*0.46,w*(a-b),P.lh*0.92];
+      if(p<0.5){ctx.fillStyle=acc;ctx.fillRect(...bar);ctx.restore();return;}
+      if(p<1){ctx.beginPath();ctx.rect(x0,P.y-P.lh,w*b,P.lh*2);ctx.clip();}
+    }
+    // 马克笔高亮块(画在字后面)
+    if(deco==='marker')for(const[j0,j1]of runs){const ea=eOut(clamp((lt-row[j0].tr)/0.22));if(ea<=0)continue;
+      ctx.fillStyle=acc;ctx.fillRect(P.x+P.adv*j0-size*0.08,P.y-size*0.56,((j1-j0+1)*P.adv+size*0.16)*ea,size*1.12);}
     row.forEach((ch,j)=>{
-      const x=P.x+P.adv*(j+0.5),y=P.y+off;
+      const x=P.x+P.adv*(j+0.5),y=P.y;
       const on=ch.emph&&lt>=ch.tr,ea=clamp((lt-ch.tr)/0.18);
-      const crack=opt.crack&&on&&L.hero&&ch.g>=L.hero.g&&ch.g<L.hero.g+L.hero.w.length?eOut(clamp((lt-L.heroEnd)/0.25)):0;
+      const crack=L.o.crack&&on&&L.hero&&ch.g>=L.hero.g&&ch.g<L.hero.g+L.hero.w.length?eOut(clamp((lt-L.heroEnd)/0.25)):0;
       const draw=(dx)=>{
-        if(on){const d=Math.max(5,size*0.07)*eOut(ea);ctx.fillStyle=ext;for(let s=Math.ceil(d);s>=1;s--)ctx.fillText(ch.c,x+dx+s,y+s);ctx.fillStyle=acc;}
+        if(on&&deco==='3d'){const d=Math.max(5,size*0.07)*eOut(ea);ctx.fillStyle=ext;for(let s=Math.ceil(d);s>=1;s--)ctx.fillText(ch.c,x+dx+s,y+s);ctx.fillStyle=acc;}
+        else if(on&&deco==='marker')ctx.fillStyle='#fff';
+        else if(on)ctx.fillStyle=acc;
         else ctx.fillStyle=face;
         ctx.fillText(ch.c,x+dx,y);
       };
-      if(crack>0){ // 关键词被横向切开错位
+      if(crack>0){
         for(const[sgn,top]of[[-1,true],[1,false]]){
           ctx.save();ctx.beginPath();ctx.rect(x-size,top?y-size:y+size*0.04,size*2,size*0.96);ctx.clip();draw(sgn*crack*size*0.09);ctx.restore();
         }
       }else draw(0);
     });
+    // 下划线 / 手绘圈(画在字上面)
+    for(const[j0,j1]of runs){
+      const ea=eOut(clamp((lt-row[j0].tr)/0.3));if(ea<=0)continue;
+      const x0=P.x+P.adv*j0,len=(j1-j0+1)*P.adv;
+      ctx.strokeStyle=acc;ctx.lineCap='round';
+      if(deco==='underline'){ctx.lineWidth=size*0.09;ctx.beginPath();ctx.moveTo(x0,P.y+size*0.62);ctx.lineTo(x0+len*ea,P.y+size*0.62);ctx.stroke();}
+      if(deco==='circle'){ctx.lineWidth=size*0.055;ctx.beginPath();
+        const cx=x0+len/2,rx=len/2+size*0.4,ry=size*0.78,a0=-2.4;
+        for(let q=0;q<=60*ea;q++){const a=a0+q/60*6.283*1.12,wob=1+0.04*Math.sin(q*0.7);ctx.lineTo(cx+Math.cos(a)*rx*wob,P.y+Math.sin(a)*ry*wob-0.06*Math.cos(a)*rx);}
+        ctx.stroke();}
+    }
     ctx.restore();
+    if(bar&&p<1){ctx.fillStyle=acc;ctx.fillRect(...bar);}
   });
   ctx.restore();
 }
@@ -396,29 +429,45 @@ function introTerm(t){
   if(t>2.8){ctx.fillStyle=C.orange;ctx.fillText('[loading] '+'█'.repeat(Math.floor(clamp((t-2.8)/0.9)*24)),50,360);}
   return C.paper;
 }
-function introTitle(t){
+function introTitle(t){ // 原创开场:音乐播放器卡片,光标点下播放
   const be=beatInfo(t),lt=t-3.8;
-  ctx.fillStyle='#0c0c0c';ctx.fillRect(0,0,W,H);
-  // 输入框里的大标题(参考视频的 “> 听见” 版式)
-  const bp=eOut(clamp(lt/0.4)),x=280,y=330,w=1360,h=320;
-  ctx.save();ctx.globalAlpha=bp;ctx.translate(0,(1-bp)*40);
-  ctx.fillStyle='#161616';ctx.strokeStyle='#3a3a3a';ctx.lineWidth=4;ctx.beginPath();ctx.roundRect(x,y,w,h,22);ctx.fill();ctx.stroke();
-  ctx.fillStyle=C.orange;ctx.font=`900 160px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('>',x+110,y+h/2);
-  ctx.font=`900 200px ${FONT}`;
-  [...'迷人的危险'].forEach((c,k)=>{
-    if(lt<0.5+k*0.12)return;const cx=x+330+k*215;
-    if(k>=3){ctx.fillStyle='#000';for(let d=12;d>=1;d--)ctx.fillText(c,cx+d,y+h/2+d);ctx.fillStyle=C.orange;}else ctx.fillStyle=C.paper;
-    ctx.fillText(c,cx,y+h/2);
-  });
-  ctx.fillStyle='#5a5a5a';ctx.font=`26px ${MONO}`;ctx.textAlign='left';ctx.fillText('? for shortcuts',x+20,y+h+50);
-  ctx.restore();
-  if(lt>1.6){ctx.globalAlpha=clamp((lt-1.6)/0.4);ctx.fillStyle='#8a8883';ctx.font=`900 50px ${FONT}`;ctx.textAlign='center';ctx.fillText('Dance Flow',W/2,800);ctx.globalAlpha=1;}
-  // 底部按拍子跳的色块
-  const n=24,bw=W/n;for(let k=0;k<n;k++){const v=(0.5+0.5*Math.sin(t*2.4+k*0.9))*(0.3+0.7*be.pulse)*clamp((t-6)/4);ctx.fillStyle=k%6===0?C.orange:'#262626';ctx.fillRect(k*bw+6,H-70-v*120,bw-12,v*120);}
-  // 结尾:红色印章“不要哭”式的提示
-  if(t>15.5){const a=t-15.5,p=clamp(a/0.16),s=lerp(2.2,1,eOut(p));ctx.save();ctx.globalAlpha=clamp(p*3);ctx.translate(W-420,240);ctx.rotate(-0.12);ctx.scale(s,s);
-    ctx.font=`900 110px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';const bw2=ctx.measureText('危险').width+90;
-    ctx.strokeStyle=C.red;ctx.lineWidth=12;ctx.beginPath();ctx.roundRect(-bw2/2,-90,bw2,180,18);ctx.stroke();ctx.fillStyle=C.red;ctx.fillText('危险',0,6);ctx.restore();}
+  ctx.fillStyle=C.ink;ctx.fillRect(0,0,W,H);
+  dots(80,120,6,30,34,'rgba(239,228,214,.10)');dots(W-260,120,6,30,34,'rgba(239,228,214,.10)');
+  const p=eOut(clamp(lt/0.55)),x=250,y=lerp(H+40,210,p),w=1420,h=620;
+  ctx.fillStyle='#000';ctx.beginPath();ctx.roundRect(x+18,y+18,w,h,30);ctx.fill();
+  ctx.fillStyle=C.paper;ctx.beginPath();ctx.roundRect(x,y,w,h,30);ctx.fill();
+  // 封面:一个大大的“危”
+  ctx.fillStyle=C.orange;ctx.beginPath();ctx.roundRect(x+60,y+60,500,500,20);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.roundRect(x+60,y+60,500,500,20);ctx.clip();
+  ctx.font=`900 440px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle=C.ink;for(let d=14;d>=1;d--)ctx.fillText('危',x+310+d,y+330+d);ctx.fillStyle=C.paper;ctx.fillText('危',x+310,y+330);ctx.restore();
+  ctx.fillStyle=C.ink;ctx.font=`700 24px ${MONO}`;ctx.textAlign='left';ctx.fillText('DF · 05',x+80,y+95);
+  // 标题
+  const tx=x+630;ctx.font=`900 120px ${FONT}`;ctx.textBaseline='middle';
+  [...'迷人的危险'].forEach((c,k)=>{const cx=tx+k*122+61;if(k>=3){ctx.fillStyle=C.ink;for(let d=8;d>=1;d--)ctx.fillText(c,cx-61+d,y+150+d);ctx.fillStyle=C.orange;}else ctx.fillStyle=C.ink;ctx.fillText(c,cx-61,y+150);});
+  ctx.fillStyle=C.gray;ctx.font=`900 44px ${FONT}`;ctx.fillText('Dance Flow',tx,y+240);
+  // 进度条
+  const by=y+330,bw=w-630-80;
+  ctx.fillStyle='rgba(43,33,28,.18)';ctx.fillRect(tx,by,bw,10);ctx.fillStyle=C.orange;ctx.fillRect(tx,by,bw*clamp(t/DUR),10);
+  ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(tx+bw*clamp(t/DUR),by+5,14,0,6.283);ctx.fill();
+  ctx.font=`700 26px ${MONO}`;ctx.fillStyle=C.gray;ctx.fillText(fmt(t),tx,by+48);ctx.textAlign='right';ctx.fillText(fmt(DUR),tx+bw,by+48);
+  // 播放控制
+  const cy=y+455,pc=tx+bw/2,playing=lt>1.25,press=lt>1.1&&lt<1.3;
+  ctx.fillStyle=C.ink;
+  for(const s of[-1,1]){const bx=pc+s*170;ctx.beginPath();ctx.moveTo(bx-s*12,cy-24);ctx.lineTo(bx-s*12,cy+24);ctx.lineTo(bx+s*22,cy);ctx.closePath();ctx.fill();ctx.fillRect(bx+(s>0?24:-30),cy-24,6,48);}
+  const pr=press?52:58;ctx.fillStyle=C.orange;ctx.beginPath();ctx.arc(pc,cy,pr,0,6.283);ctx.fill();
+  ctx.fillStyle=C.paper;
+  if(playing){ctx.fillRect(pc-20,cy-24,13,48);ctx.fillRect(pc+7,cy-24,13,48);}
+  else{ctx.beginPath();ctx.moveTo(pc-14,cy-26);ctx.lineTo(pc-14,cy+26);ctx.lineTo(pc+26,cy);ctx.closePath();ctx.fill();}
+  // 波形
+  const n=44,ww=bw/n;for(let k=0;k<n;k++){const v=playing?(0.3+0.7*(0.5+0.5*Math.sin(t*3+k*0.7)))*(0.35+0.65*be.pulse):0.08;
+    ctx.fillStyle=k/n<t/DUR?C.orange:'rgba(43,33,28,.35)';ctx.fillRect(tx+k*ww,y+560-v*50,ww*0.55,v*50);}
+  // 光标点播放
+  if(lt<2){const cp=eOut(clamp((lt-0.4)/0.7));cursor(lerp(W+60,pc,cp),lerp(H+60,cy,cp),press?1:0);}
+  // 前奏尾巴:盖章
+  if(t>15.5){const a=t-15.5,q=clamp(a/0.16),s=lerp(2.2,1,eOut(q));ctx.save();ctx.globalAlpha=clamp(q*3);ctx.translate(x+w-200,y+110);ctx.rotate(-0.14);ctx.scale(s,s);
+    ctx.font=`900 96px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';const bw2=ctx.measureText('危险').width+80;
+    ctx.strokeStyle=C.red;ctx.lineWidth=11;ctx.beginPath();ctx.roundRect(-bw2/2,-78,bw2,156,16);ctx.stroke();ctx.fillStyle=C.red;ctx.fillText('危险',0,6);ctx.restore();}
   return C.paper;
 }
 function interlude(t){
@@ -487,13 +536,12 @@ function composite(S,e,A,B){
   g.restore();
 }
 
-/* ---------- HUD:参考视频的界面感 ---------- */
+/* ---------- HUD ---------- */
 function hud(t,ink,be){
   ctx.save();ctx.fillStyle=ink;ctx.globalAlpha=0.6;ctx.textBaseline='middle';
-  ctx.font=`900 22px ${FONT}`;ctx.textAlign='left';ctx.fillText('迷人的危险 — Dance Flow',40,34);
-  ctx.textAlign='right';ctx.font=`700 20px ${MONO}`;ctx.fillText('BGM 01',W-200,34);
-  for(let k=0;k<5;k++){ctx.globalAlpha=k===(be.i<0?-1:be.i%5)?0.9:0.22;ctx.fillRect(W-180+k*28,26,18,14);}
-  ctx.globalAlpha=0.6;ctx.textAlign='left';ctx.fillText(fmt(t)+' / '+fmt(DUR),40,H-44);
+  for(let k=0;k<3;k++){const v=0.35+0.65*Math.abs(Math.sin(t*3+k*1.7))*(0.4+0.6*be.pulse);ctx.fillRect(40+k*9,44-v*22,5,v*22);}
+  ctx.font=`900 22px ${FONT}`;ctx.textAlign='left';ctx.fillText('迷人的危险 — Dance Flow',78,34);
+  ctx.font=`700 20px ${MONO}`;ctx.fillText(fmt(t)+' / '+fmt(DUR),40,H-44);
   ctx.globalAlpha=0.18;ctx.fillRect(40,H-24,W-80,4);
   ctx.globalAlpha=0.85;ctx.fillRect(40,H-24,(W-80)*clamp(t/DUR),4);
   ctx.restore();
@@ -513,6 +561,7 @@ function renderAt(t){
     composite(S,e,bufP.canvas,bufN.canvas);
   }else ink=withCtx(M,()=>S.draw(t));
   withCtx(M,()=>hud(t,ink,beatInfo(t)));
+  if(t>DUR-1.2){M.fillStyle=`rgba(0,0,0,${clamp((t-DUR+1.2)/1.2)})`;M.fillRect(0,0,W,H);}
 }
 window.renderAt=renderAt;window.DURATION=DUR;
 
@@ -526,7 +575,7 @@ if(rec){document.getElementById('cover').style.display='none';stage.style.transf
 else{
   const au=document.getElementById('au'),cover=document.getElementById('cover');
   let raf=0;
-  const loop=()=>{renderAt(au.currentTime);raf=requestAnimationFrame(loop);};
+  const loop=()=>{const t=au.currentTime;au.volume=clamp((DUR-t)/1.5);if(t>=DUR){au.pause();au.currentTime=0;au.volume=1;cover.classList.remove('hide');renderAt(DUR);return;}renderAt(t);raf=requestAnimationFrame(loop);};
   const play=()=>{cover.classList.add('hide');au.play();cancelAnimationFrame(raf);loop();};
   cover.addEventListener('click',play);
   au.addEventListener('ended',()=>{cover.classList.remove('hide');cancelAnimationFrame(raf);});

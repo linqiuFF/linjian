@@ -6,7 +6,7 @@ const req=createRequire(import.meta.url);
 let pw;for(const p of ['playwright','/opt/node22/lib/node_modules/playwright','/node-tools/node_modules/playwright']){try{pw=req(p);break;}catch{}}
 const dir=path.dirname(fileURLToPath(import.meta.url));
 const audio=process.argv[2]||path.join(dir,'song.mp3'),out=process.argv[3]||path.join(dir,'lyric-mv.mp4'),N=+process.argv[4]||4;
-const FPS=30,DUR=206.01,TOTAL=Math.ceil(DUR*FPS),tmp=fs.mkdtempSync(path.join(path.dirname(out),'.seg-'));
+const FPS=30,DUR=+fs.readFileSync(path.join(dir,'index.html'),'utf8').match(/DUR=([\d.]+)/)[1],TOTAL=Math.ceil(DUR*FPS),tmp=fs.mkdtempSync(path.join(path.dirname(out),'.seg-'));
 const per=Math.ceil(TOTAL/N);
 const browser=await pw.chromium.launch();
 let done=0;
@@ -26,6 +26,6 @@ async function work(k){
 const segs=(await Promise.all([...Array(N).keys()].map(work))).filter(Boolean);
 await browser.close();
 fs.writeFileSync(path.join(tmp,'list.txt'),segs.map(s=>`file '${s}'`).join('\n'));
-execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
+execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(tmp,'list.txt'),'-i',audio,'-map','0:v','-map','1:a','-c:v','copy','-af',`afade=t=out:st=${(DUR-1.5).toFixed(2)}:d=1.5`,'-c:a','aac','-b:a','256k','-t',String(DUR),'-movflags','+faststart',out]);
 fs.rmSync(tmp,{recursive:true,force:true});
 console.log('done',out);
