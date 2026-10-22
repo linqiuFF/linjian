@@ -115,7 +115,7 @@ const tone=P=>P.dark?mix(P.bg,'#ffffff',0.07):mix(P.bg,'#000000',0.06);
 
 /* ---------- 每页的拼贴小物件(自动避开歌词) ---------- */
 const LABELS=['SIDE A','TRACK 05','136 BPM','REC ●','DF-01','STEREO','NO.05','LIVE'];
-const AVOID={1:[[1000,640,900,300],[300,700,1000,240],[1100,40,800,260]],2:[[1300,240,520,200]],3:[[1180,700,600,260],[1300,60,600,520]],0:[[1250,500,200,500]]};
+const AVOID={1:[[1000,640,900,300],[300,700,1000,240],],2:[[1300,240,520,200]],3:[[1180,700,600,260],[1300,60,600,520]],0:[[1250,500,200,500]]};
 const COLLAGE=PAGES.map((P,pi)=>{
   const r=rnd(2024+pi),keep=[],avoid=(AVOID[pi]||[]).slice();
   G.filter(g=>g.p===pi).forEach(g=>{const w=[...g.s].length*g.size*0.98;avoid.push([g.x-90,g.y-g.size*0.95,w+180,g.size*1.9]);});
@@ -262,13 +262,12 @@ function drawGroup(g,P,t){
 const TRAVEL=new Set([2,5,7]); // 滑过侧脸 / 想揍他一拳 / 滚远
 function worldPose(g,t){
   const P=PAGES[g.p],gi=G.indexOf(g);
-  if(gi===2){ // 滑过侧脸:在第一页里往下滑,转场时一路滑进第二页右上角落住
-    const P1=PAGES[1],tx=P1.ox+1180,ty=P1.oy+175;
+  if(gi===2){ // 滑过侧脸:在第一页里往下滑,转场时带着镜头滑进第二页,随即从右下方滑出并淡掉
+    const P1=PAGES[1];
     if(t<=SLIDE_T){const q=pose(g,t);return{...q,x:q.x+P.ox,y:q.y+P.oy};}
-    const q0=pose(g,SLIDE_T),sx0=q0.x+P.ox,sy0=q0.y+P.oy,f=clamp((t-SLIDE_T)/0.68);
-    const land=clamp((t-SLIDE_T-0.68)/0.35);
-    return{x:lerp(sx0,tx,eIO(f)),y:lerp(sy0,ty,eIO(f))-(f>=1?Math.sin(land*Math.PI)*28*(1-land):0),
-      s:1,sx:f>=1?lerp(1.12,1,eOut(land)):1,sy:f>=1?lerp(0.88,1,eOut(land)):1,rot:lerp(q0.rot,0.06,eIO(f)),al:1};}
+    const q0=pose(g,SLIDE_T),sx0=q0.x+P.ox,sy0=q0.y+P.oy,f=clamp((t-SLIDE_T)/0.85);
+    const ex=P1.ox+2050,ey=P1.oy+760;
+    return{x:lerp(sx0,ex,eIn(f)*0.55+f*0.45),y:lerp(sy0,ey,eIO(f)),s:1,sx:1,sy:1,rot:lerp(q0.rot,0.35,f),al:1-clamp((f-0.6)/0.35)};}
   if(gi===5){ // 想揍他一拳:砸进第二页撞飞开关,再掉进第三页
     const P1=PAGES[1],q=pose(g,t),a={x:P1.ox+400+(q.x-g.x),y:P1.oy+820};
     if(t<DROP_T)return{...q,x:a.x,y:a.y};
