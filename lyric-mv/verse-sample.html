@@ -165,9 +165,9 @@ const COLLAGE=(()=>{
   const r=rnd(2024),keep=[],avoid=[];
   G.forEach(g=>{const w=[...g.s].length*g.size*0.98;avoid.push([g.x-90,g.y-g.size*0.95,w+180,g.size*1.9]);});
   avoid.push([1780,1680,860,230],[2200,2090,360,180],[1950,2380,480,260]);
-  const hit=(x,y,w,h)=>avoid.some(([ax,ay,aw,ah])=>x<ax+aw&&x+w>ax&&y<ay+ah&&y+h>ay)||keep.some(k=>x<k.x+k.w+30&&x+w+30>k.x&&y<k.y+k.h+30&&y+h+30>k.y);
-  for(let n=0;n<6000&&keep.length<240;n++){
-    const type=Math.floor(r()*12),w=type===1?150:type===2?170:type===6||type===5?150:type===7?180:type===11?220:90,h=type===1?70:type===2?54:type===6||type===5?110:type===7?56:type===11?40:90;
+  const hit=(x,y,w,h)=>avoid.some(([ax,ay,aw,ah])=>x<ax+aw&&x+w>ax&&y<ay+ah&&y+h>ay)||keep.some(k=>x<k.x+k.w+110&&x+w+110>k.x&&y<k.y+k.h+110&&y+h+110>k.y);
+  for(let n=0;n<6000&&keep.length<90;n++){
+    const type=[0,2,3,4,6,7,8,10][Math.floor(r()*8)],w=type===1?150:type===2?170:type===6||type===5?150:type===7?180:type===11?220:90,h=type===1?70:type===2?54:type===6||type===5?110:type===7?56:type===11?40:90;
     const x=-300+r()*5000,y=-100+r()*3000,rot=(r()-0.5)*0.5;
     if(hit(x,y,w,h))continue;
     keep.push({x,y,w,h,type,rot,seed:Math.floor(r()*1e6),lab:LABELS[Math.floor(r()*LABELS.length)],ph:r()*6});
@@ -226,7 +226,7 @@ function echo(g,t){ // 关键词后面的描边回声
 }
 function nearLayer(t,c){ // 前景碎纸屑:移动比画布快,制造纵深
   const r=rnd(321);
-  for(let k=0;k<26;k++){
+  for(let k=0;k<12;k++){
     const bx=r()*5000,by=r()*3600,sz=14+r()*22,type=Math.floor(r()*6),col=[C.orange,C.teal,C.paper,C.red][k%4];
     const x=((bx-c.x*1.5*c.z)%5000+5000)%5000-1500,y=((by-c.y*1.5*c.z)%3600+3600)%3600-1260;
     if(x<-60||x>W+60||y<-60||y>H+60)continue;
