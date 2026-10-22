@@ -159,6 +159,71 @@ function world(t,be,c){
   SHAPES.forEach((s,k)=>{const rg=regionOf(s.x,s.y),col=rg==='ink'?[C.orange,C.teal,C.paper][k%3]:rg==='teal'?[C.paper,C.orange,C.ink][k%3]:[C.orange,C.teal,C.ink][k%3];
     shadowShape(s.type,s.x+Math.sin(t*0.7+s.ph)*16,s.y+Math.cos(t*0.6+s.ph)*14,s.size*(1+0.15*be.pulse),col,t*0.5*s.dir+s.ph,Math.max(7,s.size*0.12),rg!=='cream');});
 }
+/* ---------- 拼贴小物件:铺满整张画布,自动避开歌词 ---------- */
+const LABELS=['SIDE A','TRACK 05','136 BPM','REC ●','DF-01','♪ 00:18','STEREO','NO.05','LIVE','MIX 2'];
+const COLLAGE=(()=>{
+  const r=rnd(2024),keep=[],avoid=[];
+  G.forEach(g=>{const w=[...g.s].length*g.size*0.98;avoid.push([g.x-90,g.y-g.size*0.95,w+180,g.size*1.9]);});
+  avoid.push([1780,1680,860,230],[2200,2090,360,180],[1950,2380,480,260]);
+  const hit=(x,y,w,h)=>avoid.some(([ax,ay,aw,ah])=>x<ax+aw&&x+w>ax&&y<ay+ah&&y+h>ay)||keep.some(k=>x<k.x+k.w+30&&x+w+30>k.x&&y<k.y+k.h+30&&y+h+30>k.y);
+  for(let n=0;n<6000&&keep.length<240;n++){
+    const type=Math.floor(r()*12),w=type===1?150:type===2?170:type===6||type===5?150:type===7?180:type===11?220:90,h=type===1?70:type===2?54:type===6||type===5?110:type===7?56:type===11?40:90;
+    const x=-300+r()*5000,y=-100+r()*3000,rot=(r()-0.5)*0.5;
+    if(hit(x,y,w,h))continue;
+    keep.push({x,y,w,h,type,rot,seed:Math.floor(r()*1e6),lab:LABELS[Math.floor(r()*LABELS.length)],ph:r()*6});
+  }
+  return keep;
+})();
+function collage(t,be,c){
+  const vx0=c.x-W/2/c.z-300,vx1=c.x+W/2/c.z+300,vy0=c.y-H/2/c.z-300,vy1=c.y+H/2/c.z+300;
+  for(const it of COLLAGE){
+    if(it.x>vx1||it.x+it.w<vx0||it.y>vy1||it.y+it.h<vy0)continue;
+    const rg=regionOf(it.x+it.w/2,it.y+it.h/2),dark=rg!=='cream';
+    const fg=dark?C.paper:C.ink,acc=rg==='teal'?C.orange:rg==='ink'?C.orange:C.teal,r=rnd(it.seed);
+    const bob=Math.sin(t*0.8+it.ph)*6,pop=(it.type===3||it.type===8||it.type===9)?1+0.18*be.pulse:1;
+    ctx.save();ctx.translate(it.x+it.w/2,it.y+it.h/2+bob);ctx.rotate(it.rot);ctx.scale(pop,pop);ctx.translate(-it.w/2,-it.h/2);
+    const w=it.w,h=it.h;ctx.globalAlpha=0.9;
+    switch(it.type){
+      case 0: // 裁切线
+        ctx.strokeStyle=fg;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,30);ctx.lineTo(0,0);ctx.lineTo(30,0);ctx.moveTo(w,h-30);ctx.lineTo(w,h);ctx.lineTo(w-30,h);
+        ctx.moveTo(w/2-14,h/2);ctx.lineTo(w/2+14,h/2);ctx.moveTo(w/2,h/2-14);ctx.lineTo(w/2,h/2+14);ctx.stroke();break;
+      case 1: // 条形码
+        ctx.fillStyle=dark?C.paper:'#fff';ctx.fillRect(0,0,w,h);ctx.fillStyle=C.ink;for(let x=8;x<w-8;){const bw=2+Math.floor(r()*4)*2;if(r()<0.6)ctx.fillRect(x,6,bw,h-22);x+=bw+2;}
+        ctx.font=`700 12px ${MONO}`;ctx.textAlign='center';ctx.fillText('6 921168 50'+(it.seed%90+10),w/2,h-5);break;
+      case 2: // 小标签
+        ctx.fillStyle=SH(dark);ctx.beginPath();ctx.roundRect(6,6,w,h,h/2);ctx.fill();
+        ctx.fillStyle=acc;ctx.beginPath();ctx.roundRect(0,0,w,h,h/2);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font=`700 24px ${MONO}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(it.lab,w/2,h/2+1);break;
+      case 3:{ // 星星贴纸
+        const R=w/2;ctx.translate(R,R);ctx.rotate(t*0.4);const star=()=>{ctx.beginPath();for(let k=0;k<10;k++){const a=k*Math.PI/5-Math.PI/2,rr=k%2?R*0.45:R;ctx.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);}ctx.closePath();};
+        ctx.translate(6,6);star();ctx.fillStyle=SH(dark);ctx.fill();ctx.translate(-6,-6);star();ctx.fillStyle=C.orange;ctx.fill();break;}
+      case 4: // 箭头
+        ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(0,h*0.38);ctx.lineTo(w*0.55,h*0.38);ctx.lineTo(w*0.55,h*0.15);ctx.lineTo(w,h/2);ctx.lineTo(w*0.55,h*0.85);ctx.lineTo(w*0.55,h*0.62);ctx.lineTo(0,h*0.62);ctx.closePath();ctx.fill();break;
+      case 5: // 棋盘格
+        for(let a=0;a<6;a++)for(let b=0;b<4;b++){ctx.fillStyle=(a+b)%2?fg:'rgba(0,0,0,0)';ctx.fillRect(a*w/6,b*h/4,w/6,h/4);}ctx.strokeStyle=fg;ctx.lineWidth=3;ctx.strokeRect(0,0,w,h);break;
+      case 6: // 斜纹块
+        ctx.save();ctx.beginPath();ctx.rect(0,0,w,h);ctx.clip();ctx.strokeStyle=acc;ctx.lineWidth=10;for(let x=-h;x<w+h;x+=24){ctx.beginPath();ctx.moveTo(x,h);ctx.lineTo(x+h,0);ctx.stroke();}ctx.restore();
+        ctx.strokeStyle=fg;ctx.lineWidth=4;ctx.strokeRect(0,0,w,h);break;
+      case 7: // 胶带
+        ctx.fillStyle=dark?'rgba(239,228,214,.28)':'rgba(200,85,61,.28)';ctx.beginPath();ctx.moveTo(0,0);for(let k=0;k<=4;k++)ctx.lineTo(w,k*h/4+(k%2?6:0));ctx.lineTo(0,h);for(let k=4;k>=0;k--)ctx.lineTo(k%2?-6:0,k*h/4);ctx.closePath();ctx.fill();break;
+      case 8: ctx.fillStyle=acc;ctx.font=`900 88px ${FONT}`;ctx.textBaseline='top';ctx.fillText('♪',0,0);break;
+      case 9: ctx.fillStyle=C.red;ctx.font=`900 80px ${FONT}`;ctx.textBaseline='top';ctx.fillText('!!',0,0);break;
+      case 10: ctx.fillStyle=fg;for(let k=0;k<16;k++){const a=k/16*6.283+t*0.3;ctx.beginPath();ctx.arc(w/2+Math.cos(a)*w*0.42,h/2+Math.sin(a)*h*0.42,4,0,6.283);ctx.fill();}break;
+      case 11: // 刻度尺
+        ctx.fillStyle=fg;ctx.fillRect(0,h-4,w,4);for(let k=0;k<=22;k++)ctx.fillRect(k*w/22,k%5?h-16:h-32,3,k%5?12:28);break;
+    }
+    ctx.restore();
+  }
+}
+function echo(g,t){ // 关键词后面的描边回声
+  if(!(g.solid||g.marker||g.enter==='slam'||g.circle)||t<g.ta+0.3)return;
+  const P=pose(g,t),adv=g.size*0.98,chars=[...g.s],w=chars.length*adv,e=eOut(clamp((t-g.ta-0.3)/0.4));
+  const rg=regionOf(g.x,g.y),col=g.enter==='slam'?C.red:rg==='cream'?C.teal:C.orange;
+  ctx.save();ctx.font=`900 ${g.size}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.strokeStyle=col;ctx.lineWidth=3;
+  for(let k=3;k>=1;k--){ctx.save();ctx.globalAlpha=0.5/k*e;ctx.translate(P.x+w/2+k*22*e,P.y+k*22*e);ctx.rotate(P.rot+(g.enter==='slam'?-0.12:0));ctx.translate(-w/2,0);
+    chars.forEach((c,j)=>ctx.strokeText(c,adv*(j+0.5),0));ctx.restore();}
+  ctx.restore();
+}
 function nearLayer(t,c){ // 前景碎纸屑:移动比画布快,制造纵深
   const r=rnd(321);
   for(let k=0;k<26;k++){
@@ -234,7 +299,7 @@ function drawGroup(g,t){
 }
 function toggle(t){ // 「朋友/恋人」开关,被“想揍他一拳”撞飞
   const ta=gt(1,'朋友')-0.2;if(t<ta)return;
-  let x=2330,y=1650,rot=0;const ap=eBack(clamp((t-ta)/0.35));
+  let x=2200,y=1790,rot=0;const ap=eBack(clamp((t-ta)/0.35));
   const k=t-PUNCH_T;if(k>0){x+=k*1300;y+=-k*900+k*k*900;rot=k*4;}
   let pos=0;for(const[t0,amt]of[[gt(1,'朋友')+0.6,0.62],[gt(1,'体贴')+0.3,0.42]]){const q=t-t0;if(q<0)continue;pos=q<0.35?amt*eOut(q/0.35):q<0.7?amt*(1-eBack(clamp((q-0.35)/0.35))):0;}
   pos=Math.max(0,pos);
@@ -254,7 +319,9 @@ function renderAt(t){
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
   ctx.save();ctx.translate(W/2,H/2);ctx.rotate(c.r);ctx.scale(c.z,c.z);ctx.translate(-c.x,-c.y);
   world(t,be,c);
+  collage(t,be,c);
   toggle(t);
+  G.forEach(g=>echo(g,t));
   G.forEach(g=>drawGroup(g,t));
   ctx.restore();
   nearLayer(t,c);
