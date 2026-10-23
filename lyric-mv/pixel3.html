@@ -445,26 +445,24 @@ function glyphs(i){ // 每行字只栅格化一次:字形 + 2px 描边
   return LCACHE[i]={w,h,F,O,y0,y1};
 }
 function subtitle(t){
-  ly.clearRect(0,0,960,170);
+  ly.clearRect(0,0,960,170);let lyA=1;
   for(let i=13;i<=19;i++){const t0=LYRICS[i].t,t1=i<19?LYRICS[i+1].t:LEND;if(t<t0-0.15||t>=t1)continue;
     const G=glyphs(i),{w,h,F,O,y0,y1}=G,str=LYRICS[i].s;
-    const pin=clamp((t-t0+0.15)/0.4),pout=clamp((t-(t1-0.5))/0.5),oy=Math.round((1-eOut(pin))*5)*2;
+    const pin=clamp((t-t0+0.15)/0.4),pout=clamp((t-(t1-0.3))/0.3),oy=Math.round((1-eOut(pin))*5)*2-Math.round(eOut(pout)*3)*2;
     const dur=Math.max(0.6,Math.min(t1-t0-0.6,str.replace(/ /g,'').length*0.3)),sweep=clamp((t-t0)/dur)*w;
     const im=ly.createImageData(960,170),D=im.data,X0=480-(w>>1),Y0=70;
     const put=(x,y,r,g2,b,a)=>{if(x<0||y<0||x>=960||y>=170)return;const k=(y*960+x)*4;if(a<D[k+3]*0.9&&D[k+3]>0&&a<255)return;D[k]=r;D[k+1]=g2;D[k+2]=b;D[k+3]=a;};
     for(const pass of[0,1,2]){ // 0 阴影 1 描边 2 字
       for(let y=0;y<h;y++)for(let x=0;x<w;x++){const k=y*w+x,isF=F[k],isO=O[k];if(pass===2?!isF:!(isF||isO))continue;if(pass===1&&isF)continue;
-        const cx=x>>1,cy=y>>1;if(pin<1&&B4[(cy&3)*4+(cx&3)]>=pin)continue;
-        let dx=0,dy=0,a=255;const rr=hash2(cx+i*131,cy);
-        if(pout>0){const qq=clamp((pout-rr*0.55)/0.45);if(qq>0){dy=-Math.round(qq*qq*34/2)*2;dx=Math.round(Math.sin(rr*23)*qq*5)*2;a=Math.round(255*(1-qq));if(pass<2&&qq>0.2)continue;}}
+        const dx=0,dy=0,a=255;
         const X=X0+x+dx,Y=Y0+y+oy+dy+(pass===0?2:0);
         if(pass===0){put(X,Y,12,8,22,Math.round(a*0.55));continue;}
         if(pass===1){put(X,Y,27,20,40,a);continue;}
         const low=(y-y0)/(y1-y0+1)>0.55,sung=x<sweep;
         if(sung)low?put(X,Y,255,206,128,a):put(X,Y,255,248,232,a);
         else low?put(X,Y,186,176,206,a):put(X,Y,236,232,244,a);}}
-    ly.putImageData(im,0,0);break;}
-  sb.drawImage(LYR,0,540-170-6);
+    ly.putImageData(im,0,0);lyA=Math.min(eOut(pin),1-eIO(pout));break;}
+  sb.globalAlpha=lyA;sb.drawImage(LYR,0,540-170-6);sb.globalAlpha=1;
 }
 function hud(t){
   if(t<T.game||t>=T.shelf)return;
