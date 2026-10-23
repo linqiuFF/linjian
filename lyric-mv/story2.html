@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>被你改变的那部分我 · 样片</title>
+<style>
+@font-face{font-family:'LJBlack';src:url(fonts/black.woff2) format('woff2');font-weight:900}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+canvas{width:1920px;height:1080px;display:block;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<audio id="au" src="song2.mp3" preload="auto"></audio>
+<script src="data2.js"></script>
+<script>
+(()=>{
+/* 《被你改变的那部分我》1:04–1:35:
+   “我”是一只身体由拼图拼成的小兽,被“你”改变过的拼图是紫色的;
+   你走后,世界是褪色的,只有那些紫色碎片还保留着颜色 */
+const W=1920,H=1080,START=64.3,END=95.0;
+const cv=document.getElementById('c'),M=cv.getContext('2d');
+let ctx=M;
+const mk=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;return c.getContext('2d');};
+const buf=mk();
+const FONT='"LJBlack","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+const OUT='#3a3346';
+const PURPLE='#b48fe6',PURPLE2='#9a72d6',GRAY='#a7abb6',GRAY2='#8c909c';
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const eOut=t=>1-Math.pow(1-t,3);
+const eIn=t=>t*t*t;
+const eIO=t=>t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const eBack=t=>{const c=1.9,x=t-1;return 1+(c+1)*x*x*x+c*x*x;};
+const rnd=seed=>{let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};};
+function beatInfo(t){const B=BEATS;if(t<B[0])return{i:-1,ph:1,pulse:0};let lo=0,hi=B.length-1;
+  while(lo<hi){const m=(lo+hi+1)>>1;if(B[m]<=t)lo=m;else hi=m-1;}const iv=(B[lo+1]||B[lo]+0.5)-B[lo],ph=clamp((t-B[lo])/iv);return{i:lo,ph,pulse:Math.exp(-ph*5)};}
+const L=i=>LYRICS[i];
+const T0=k=>LYRICS[13+k].t; // 本段 7 句的开始时间
+const LEND=LYRICS[19].t+6.4;
+
+/* ---------- 剧情时间点 ---------- */
+const T={grow:T0(0),assemble:T0(1)+0.2,hug:T0(1)+1.3,breeze:T0(2)-0.2,fade:T0(3),wave:T0(4),gone:T0(4)+2.6,
+  battery:T0(5)+0.2,drop1:T0(5)+1.6,drop2:T0(5)+2.8,collect:T0(6)+0.2,pull:T0(6)+3.4};
+// 世界的饱和度:平时褪色,发香那句短暂回到彩色
+const sat=t=>t<T.breeze?0.32:t<T.fade?lerp(0.32,1.05,eOut(clamp((t-T.breeze)/0.8))):lerp(1.05,0.3,eIO(clamp((t-T.fade)/1.8)));
+
+/* ---------- 天空、云、小岛 ---------- */
+const CLOUDS=(()=>{const r=rnd(11),a=[];for(let k=0;k<9;k++)a.push({x:r()*2400-200,y:80+r()*560,s:0.6+r()*0.9,v:8+r()*16});return a;})();
+function cloud(x,y,s,col){ctx.fillStyle=col;ctx.beginPath();for(const[dx,dy,r]of[[-60,10,48],[-15,-20,62],[45,0,52],[90,18,38],[0,22,55]])ctx.moveTo(x+(dx+r)*s,y+dy*s),ctx.arc(x+dx*s,y+dy*s,r*s,0,6.283);ctx.fill();}
+function sky(t){
+  const g=ctx.createLinearGradient(0,-300,0,1300);g.addColorStop(0,'#c9b8ee');g.addColorStop(0.5,'#f5c6dc');g.addColorStop(1,'#ffe6c9');
+  ctx.fillStyle=g;ctx.fillRect(-1000,-800,4000,2800);
+  for(const c of CLOUDS){const x=((c.x+t*c.v)%2600)-300;cloud(x,c.y,c.s,'rgba(255,255,255,.75)');}
+}
+function island(x,y,w,s,grassCol){ // 漂浮的小岛:上面一层草,下面倒锥形的石头
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='#d9b8a0';ctx.strokeStyle=OUT;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-w/2,0);
+  ctx.bezierCurveTo(-w*0.4,w*0.35,-w*0.12,w*0.55,0,w*0.62);ctx.bezierCurveTo(w*0.12,w*0.55,w*0.4,w*0.35,w/2,0);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle='#c49c84';ctx.beginPath();ctx.ellipse(-w*0.1,w*0.22,w*0.12,w*0.05,0.3,0,6.283);ctx.ellipse(w*0.15,w*0.34,w*0.08,w*0.035,-0.3,0,6.283);ctx.fill();
+  ctx.fillStyle=grassCol;ctx.beginPath();ctx.ellipse(0,0,w/2+10,40,0,Math.PI,0);ctx.lineTo(w/2+10,8);
+  for(let k=0;k<=12;k++){const xx=w/2+10-k*(w+20)/12;ctx.quadraticCurveTo(xx+(w+20)/24,22,xx,8);}ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------- 拼图小兽“我” ---------- */
+// 4×4 拼图格,紫色的是被“你”改变过的那部分
+const CELLS=[];for(let r=0;r<4;r++)for(let c=0;c<4;c++)CELLS.push({r,c,purple:[1,6,9,13].includes(r*4+c)});
+const GONE_GRAY=[4,11]; // “存活是有限期”时掉下来的两块灰色拼图
+function piecePath(x,y,s,seed){ // 一块拼图:方块 + 两个凸起
+  ctx.beginPath();ctx.rect(x,y,s,s);ctx.moveTo(x+s+s*0.16,y+s*0.5);ctx.arc(x+s,y+s*0.5,s*0.16,0,6.283);ctx.moveTo(x+s*0.5+s*0.16,y+s);ctx.arc(x+s*0.5,y+s,s*0.16,0,6.283);
+}
+function bodyPath(R){ // 毛茸茸的圆身体
+  ctx.beginPath();for(let k=0;k<=48;k++){const a=k/48*6.283,r=R*(1+0.045*Math.sin(a*12));const x=Math.cos(a)*r,y=Math.sin(a)*r*0.92;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();
+}
+function drawMe(x,y,o){
+  const t=o.t,R=95,sc=o.scale||1,mode=o.mode||'all',face=o.face||'calm',sq=o.sq||1;
+  ctx.save();ctx.translate(x,y);ctx.scale(sc,sc*sq);ctx.translate(0,-R*0.92-16);
+  if(mode==='all'){
+    // 脚
+    ctx.fillStyle=GRAY2;ctx.strokeStyle=OUT;ctx.lineWidth=6;for(const s of[-1,1]){ctx.beginPath();ctx.ellipse(s*36,R*0.9,22,13,0,0,6.283);ctx.fill();ctx.stroke();}
+    // 耳朵
+    for(const s of[-1,1]){ctx.fillStyle=GRAY;ctx.beginPath();ctx.arc(s*58,-R*0.78,24,0,6.283);ctx.fill();ctx.stroke();ctx.fillStyle='#e8bcc8';ctx.beginPath();ctx.arc(s*58,-R*0.78,11,0,6.283);ctx.fill();}
+    // 身体底色(缺了拼图的地方会露出来)
+    bodyPath(R);ctx.fillStyle='#6f6a7c';ctx.fill();
+  }
+  // 拼图格
+  ctx.save();bodyPath(R);ctx.clip();
+  const s=R*0.5;
+  CELLS.forEach((c,k)=>{
+    if(GONE_GRAY.includes(k)&&o.goneGray&&o.goneGray[GONE_GRAY.indexOf(k)])return;
+    if(c.purple&&o.gonePurple)return;
+    if(mode==='color'&&!c.purple)return;
+    const x0=-R+c.c*s,y0=-R+c.r*s;
+    ctx.fillStyle=c.purple?((c.r+c.c)%2?PURPLE:PURPLE2):((c.r+c.c)%2?GRAY:'#b3b7c1');
+    ctx.fillRect(x0-1,y0-1,s+2,s+2);
+  });
+  {ctx.strokeStyle='rgba(58,51,70,.45)';ctx.lineWidth=3;
+    for(let k=1;k<4;k++){ctx.beginPath();ctx.moveTo(-R+k*s,-R);for(let y=-R;y<=R;y+=s/2)ctx.lineTo(-R+k*s+((y/s*2|0)%2?6:-6),y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-R,-R+k*s);for(let x=-R;x<=R;x+=s/2)ctx.lineTo(x,-R+k*s+((x/s*2|0)%2?6:-6));ctx.stroke();}}
+  ctx.restore();
+  bodyPath(R);ctx.strokeStyle=OUT;ctx.lineWidth=7;ctx.stroke();
+  // 脸
+  const fy=-8,ex=30;ctx.fillStyle='rgba(240,120,150,.45)';ctx.beginPath();ctx.ellipse(-ex-22,fy+26,16,10,0,0,6.283);ctx.ellipse(ex+22,fy+26,16,10,0,0,6.283);ctx.fill();
+  ctx.fillStyle=OUT;ctx.strokeStyle=OUT;ctx.lineWidth=6;ctx.lineCap='round';
+  const blink=(t%3.6)<0.12;
+  for(const sx of[-1,1]){const x0=sx*ex;
+    if(face==='closed'||face==='laughcry'||blink){ctx.beginPath();ctx.arc(x0,fy+2,11,face==='laughcry'?Math.PI*1.1:Math.PI*0.15,face==='laughcry'?Math.PI*1.9:Math.PI*0.85,face==='laughcry'?false:false);ctx.stroke();}
+    else{ctx.beginPath();ctx.ellipse(x0,fy,9,12,0,0,6.283);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x0-3,fy-5,3.5,0,6.283);ctx.fill();ctx.fillStyle=OUT;}
+    if(face==='sad'){ctx.beginPath();ctx.moveTo(x0+sx*14,fy-18);ctx.lineTo(x0-sx*8,fy-28);ctx.stroke();}
+  }
+  ctx.beginPath();
+  if(face==='laughcry'){ctx.arc(0,fy+24,18,0.1,Math.PI-0.1);ctx.closePath();ctx.fill();}
+  else if(face==='closed'||face==='smile'){ctx.arc(0,fy+20,12,0.2,Math.PI-0.2);ctx.stroke();}
+  else if(face==='sad'){ctx.moveTo(-12,fy+32);ctx.quadraticCurveTo(0,fy+22,12,fy+32);ctx.stroke();}
+  else{ctx.moveTo(-10,fy+28);ctx.lineTo(10,fy+28);ctx.stroke();}
+  // 眼泪
+  if(o.tears){for(let k=0;k<2;k++)for(const sx of[-1,1]){const ph=((t*1.1+k*0.5)%1),tx=sx*(ex+10+ph*10),ty=fy+10+eIn(ph)*70;
+    ctx.globalAlpha=1-ph*0.6;ctx.fillStyle='#bfe6ff';ctx.strokeStyle=OUT;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(tx,ty-12);ctx.bezierCurveTo(tx+8,ty,tx+8,ty+8,tx,ty+8);ctx.bezierCurveTo(tx-8,ty+8,tx-8,ty,tx,ty-12);ctx.fill();ctx.stroke();}ctx.globalAlpha=1;}
+  // 手
+  ctx.fillStyle=GRAY2;ctx.strokeStyle=OUT;ctx.lineWidth=6;
+  const arms=o.arms||'rest';
+  const hands=arms==='hug'?[[-R-6,20],[R+16,6]]:arms==='wave'?[[-R-6,20],[R+10+Math.sin(t*10)*6,-R*0.6+Math.cos(t*10)*8]]:arms==='pick'?[[-R-6,20],[R*0.6,R*0.75]]:[[-R-6,20],[R+6,20]];
+  for(const[hx,hy]of hands){ctx.beginPath();ctx.ellipse(hx,hy,20,17,0,0,6.283);ctx.fill();ctx.stroke();}
+  ctx.restore();
+}
+
+/* ---------- 长耳朵小兽“你” ---------- */
+function drawYou(x,y,s,t,o={}){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);ctx.globalAlpha*=o.alpha??1;
+  const bob=Math.sin(t*4)*3;ctx.translate(0,bob);
+  // 行李箱
+  if(o.bag){ctx.save();ctx.translate(-70,-150);ctx.rotate(-0.15);ctx.fillStyle='#e9a86b';ctx.strokeStyle=OUT;ctx.lineWidth=6;ctx.beginPath();ctx.roundRect(-55,-80,110,150,16);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#d48b52';ctx.fillRect(-55,-20,110,14);ctx.beginPath();ctx.roundRect(-20,-104,40,28,8);ctx.stroke();ctx.restore();}
+  ctx.fillStyle=OUT;ctx.strokeStyle=OUT;ctx.lineWidth=6;
+  // 尾巴
+  ctx.fillStyle='#d9c3f5';ctx.beginPath();ctx.ellipse(70,-60,28,18,-0.6,0,6.283);ctx.fill();ctx.stroke();ctx.fillStyle='#ffb3cf';ctx.beginPath();ctx.ellipse(86,-74,12,9,-0.6,0,6.283);ctx.fill();
+  // 脚
+  ctx.fillStyle='#b99ae0';for(const sx of[-1,1]){ctx.beginPath();ctx.ellipse(sx*30,-10,20,12,0,0,6.283);ctx.fill();ctx.stroke();}
+  // 长耳朵
+  for(const sx of[-1,1]){ctx.save();ctx.translate(sx*26,-185);ctx.rotate(sx*(0.18+Math.sin(t*2+sx)*0.05));ctx.fillStyle='#d9c3f5';ctx.beginPath();ctx.ellipse(0,-60,22,66,0,0,6.283);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ffc9dc';ctx.beginPath();ctx.ellipse(0,-58,10,46,0,0,6.283);ctx.fill();ctx.restore();}
+  // 身体
+  ctx.fillStyle='#d9c3f5';ctx.beginPath();for(let k=0;k<=40;k++){const a=k/40*6.283,r=88*(1+0.04*Math.sin(a*11));ctx.lineTo(Math.cos(a)*r,-100+Math.sin(a)*r*0.95);}ctx.closePath();ctx.fill();ctx.stroke();
+  // 脸
+  ctx.fillStyle='rgba(255,140,170,.45)';ctx.beginPath();ctx.ellipse(-50,-82,14,9,0,0,6.283);ctx.ellipse(50,-82,14,9,0,0,6.283);ctx.fill();
+  ctx.fillStyle=OUT;for(const sx of[-1,1]){ctx.beginPath();ctx.ellipse(sx*26,-108,8,11,0,0,6.283);ctx.fill();}
+  ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,-90,10,0.2,Math.PI-0.2);ctx.stroke();
+  // 挥手
+  ctx.fillStyle='#b99ae0';ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(o.wave?92:-92,o.wave?-170+Math.sin(t*10)*8:-80,18,15,0,0,6.283);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
+// 用紫色拼图拼成的“你”的小玩偶
+function doll(x,y,s,t,p){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  const r=rnd(5);
+  // 拼图从地上飞来拼成玩偶
+  ctx.save();ctx.globalAlpha=clamp(p*1.5);
+  ctx.strokeStyle=OUT;ctx.lineWidth=5;
+  for(const sx of[-1,1]){ctx.save();ctx.translate(sx*18,-120);ctx.rotate(sx*0.15);ctx.fillStyle=PURPLE;ctx.beginPath();ctx.ellipse(0,-40,14,42,0,0,6.283);ctx.fill();ctx.stroke();ctx.restore();}
+  ctx.fillStyle=PURPLE2;ctx.beginPath();ctx.arc(0,-70,58,0,6.283);ctx.fill();ctx.stroke();
+  ctx.strokeStyle='rgba(58,51,70,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-58,-70);ctx.lineTo(58,-70);ctx.moveTo(0,-128);ctx.lineTo(0,-12);ctx.stroke();
+  ctx.fillStyle=OUT;for(const sx of[-1,1]){ctx.beginPath();ctx.arc(sx*20,-80,6,0,6.283);ctx.fill();}
+  ctx.lineWidth=4;ctx.strokeStyle=OUT;ctx.beginPath();ctx.arc(0,-64,8,0.2,Math.PI-0.2);ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+/* 散落在地上的紫色拼图 */
+const GROUND=(()=>{const r=rnd(21),a=[];for(let k=0;k<6;k++)a.push({x:540+r()*480,y:688+r()*10,rot:(r()-0.5)*1.4,s:30+r()*10});return a;})();
+const JAR={x:1060,y:700};
+
+/* ---------- 一帧 ---------- */
+const ME={x:780,y:700};
+function scene(t,be,mode){
+  // mode='all' 画完整场景;'color' 只画需要保留颜色的东西(紫色拼图、玩偶、瓶子里的碎片)
+  const lt=t-START;
+  if(mode==='all'){
+    sky(t);
+    // “你”的岛越漂越远,最后消失在云里
+    const k=clamp((t-START)/(T.gone-START)),ix=lerp(1480,1900,eIO(k)),iy=lerp(560,300,eIO(k)),is=lerp(0.62,0.1,eIO(k));
+    if(t<T.gone+0.3){ctx.save();ctx.globalAlpha=1-clamp((t-T.gone)/0.3);island(ix,iy,520,is,'#a9d7a0');drawYou(ix+10*is,iy+4*is,is*1.1,t,{bag:true,wave:t>T.wave});ctx.restore();}
+    cloud(1880,330,1.3,'rgba(255,255,255,.9)');
+    island(ME.x+40,ME.y,760,1,'#a9d7a0');
+  }
+  // 地上的紫色拼图(拼成玩偶之前)
+  const asm=clamp((t-T.assemble)/0.9);
+  GROUND.forEach((g,k)=>{
+    if(asm>=1)return;const tx=ME.x+175,ty=ME.y-90,p=eIO(clamp(asm*1.3-k*0.06));
+    ctx.save();ctx.translate(lerp(g.x,tx,p),lerp(g.y,ty,p)-Math.sin(p*Math.PI)*120);ctx.rotate(g.rot*(1-p)+p*6);
+    ctx.fillStyle=k%2?PURPLE:PURPLE2;ctx.strokeStyle=OUT;ctx.lineWidth=4;piecePath(-g.s/2,-g.s/2,g.s,k);ctx.fill();ctx.stroke();ctx.restore();
+  });
+  // 主角
+  let face='calm',arms='rest',tears=false,sc=lerp(1.1,1.4,eIO(clamp((t-T.grow)/3.2)));
+  if(t>T.hug&&t<T.breeze)arms='hug';
+  if(t>T.breeze&&t<T.fade+1.0){face='closed';arms='hug';}
+  if(t>T.fade+1.0&&t<T.wave)face='sad';
+  if(t>T.wave&&t<T.battery){face='laughcry';tears=true;arms='wave';}
+  if(t>T.battery)face='sad';
+  if(t>T.collect){arms='pick';face='smile';}
+  const goneGray=[t>T.drop1,t>T.drop2];
+  const sq=1+0.02*Math.sin(t*2.4)+0.04*be.pulse*(t>T.breeze&&t<T.fade?1:0);
+  drawMe(ME.x,ME.y,{t,scale:sc,face,arms,tears,goneGray,mode,sq});
+  // 掉下来的灰色拼图
+  [T.drop1,T.drop2].forEach((td,k)=>{if(t<td||mode!=='all')return;const a=t-td,c=CELLS[GONE_GRAY[k]],R=95*sc,s=R*0.5;
+    const x0=ME.x-R+c.c*s+s/2,y0=ME.y-(R*0.92+16)*sc-R+c.r*s+s/2;
+    ctx.save();ctx.translate(x0+a*60*(k?1:-1),Math.min(ME.y-10,y0+a*a*900));ctx.rotate(a*4*(k?1:-1));ctx.fillStyle=GRAY;ctx.strokeStyle=OUT;ctx.lineWidth=4;piecePath(-s/2,-s/2,s,k);ctx.fill();ctx.stroke();ctx.restore();});
+  // 拼图玩偶:被抱着;最后一句时散开,一块块装进瓶子
+  if(t>T.assemble+0.6&&t<T.collect+0.4){const p=clamp((t-T.assemble-0.6)/0.4),hug=t>T.hug;
+    doll(ME.x+175,ME.y-4,0.95,t,p*(1-clamp((t-T.collect)/0.4)));}
+  // 玻璃瓶
+  if(t>T.collect-0.4){
+    const ap=eBack(clamp((t-T.collect+0.4)/0.4)),n=Math.floor(clamp((t-T.collect)/2.8)*7);
+    ctx.save();ctx.translate(JAR.x,JAR.y);ctx.scale(ap,ap);
+    if(mode==='all'){ctx.fillStyle='rgba(220,240,255,.35)';ctx.strokeStyle=OUT;ctx.lineWidth=6;ctx.beginPath();ctx.roundRect(-70,-170,140,170,26);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#e0b48a';ctx.beginPath();ctx.roundRect(-58,-196,116,30,8);ctx.fill();ctx.stroke();}
+    const r=rnd(77);
+    for(let k=0;k<7;k++){if(k>=n)break;const px=-40+r()*80,py=-30-r()*100,ro=r()*6;
+      ctx.save();ctx.translate(px,py);ctx.rotate(ro);ctx.fillStyle=k%2?PURPLE:PURPLE2;ctx.strokeStyle=OUT;ctx.lineWidth=4;piecePath(-16,-16,32,k);ctx.fill();ctx.stroke();ctx.restore();}
+    // 一块正在被放进瓶子的拼图
+    const ph=((t-T.collect)/0.4)%1;if(t>T.collect&&n<7){ctx.save();ctx.translate(lerp(-180,0,eIO(ph)),lerp(-120,-200,Math.sin(ph*Math.PI))+ph*120);ctx.rotate(ph*4);
+      ctx.fillStyle=PURPLE;ctx.strokeStyle=OUT;ctx.lineWidth=4;piecePath(-16,-16,32,9);ctx.fill();ctx.stroke();ctx.restore();}
+    if(n>=7&&mode==='color'){ctx.fillStyle=`rgba(200,160,255,${0.25+0.15*Math.sin(t*3)})`;ctx.beginPath();ctx.arc(0,-90,130,0,6.283);ctx.fill();}
+    ctx.restore();
+  }
+  if(mode!=='all')return;
+  // 发香:带花瓣的风吹过,身边短暂出现“你”的影子
+  if(t>T.breeze&&t<T.fade+1.4){const a=t-T.breeze,r=rnd(31);
+    for(let k=0;k<26;k++){const x=((r()*2400+a*(380+r()*200))%2400)-240,y=200+r()*600+Math.sin(a*2+k)*40,ro=a*3+k;
+      ctx.save();ctx.translate(x,y);ctx.rotate(ro);ctx.fillStyle=k%3?'#ffb7cf':'#fff0b8';ctx.beginPath();ctx.ellipse(0,0,12,7,0,0,6.283);ctx.fill();ctx.restore();}
+    const ga=Math.min(clamp(a/0.8),clamp((T.fade+1.0-t)/0.6))*0.55;
+    if(ga>0)drawYou(ME.x-260,ME.y,1.15,t,{alpha:ga});}
+  // 电量条:一格一格往下掉
+  if(t>T.battery&&t<T.collect+0.6){const a=clamp((t-T.battery)/0.3),fade=1-clamp((t-T.collect)/0.6),bx=ME.x-60,by=ME.y-330*sc;
+    const n=5-Math.floor(clamp((t-T.battery-0.5)/3.4)*5);
+    ctx.save();ctx.globalAlpha=a*fade;ctx.fillStyle='#fff';ctx.strokeStyle=OUT;ctx.lineWidth=6;ctx.beginPath();ctx.roundRect(bx,by,120,52,10);ctx.fill();ctx.stroke();ctx.fillStyle=OUT;ctx.fillRect(bx+120,by+16,10,20);
+    for(let k=0;k<5;k++){ctx.fillStyle=k<n?(n<=1?'#ff6b6b':'#7fd38a'):'rgba(58,51,70,.12)';ctx.fillRect(bx+8+k*22.5,by+8,18,36);}ctx.restore();}
+}
+
+/* ---------- 镜头 ---------- */
+const CAM=[[START,1000,520,0.92],[T.assemble,940,540,1.0],[T.hug+0.4,850,560,1.28],[T.fade,850,560,1.32],[T.wave-0.3,1060,500,1.0],[T.gone,1300,430,1.0],
+  [T.battery,860,520,1.25],[T.collect,880,560,1.2],[T.pull,930,560,1.05],[END,960,520,0.7]];
+function cam(t){let k=0;while(k<CAM.length-2&&CAM[k+1][0]<=t)k++;const a=CAM[k],b=CAM[k+1],p=eIO(clamp((t-a[0])/(b[0]-a[0])));
+  return{x:lerp(a[1],b[1],p)+Math.sin(t*0.5)*6,y:lerp(a[2],b[2],p)+Math.cos(t*0.4)*4,z:lerp(a[3],b[3],p)};}
+
+/* ---------- 字幕 ---------- */
+function subtitle(t){
+  for(let i=13;i<=19;i++){const t0=LYRICS[i].t,t1=i<19?LYRICS[i+1].t:LEND;if(t<t0-0.15||t>=t1-0.05)continue;
+    const a=Math.min(clamp((t-t0+0.15)/0.2),clamp((t1-0.05-t)/0.2));
+    ctx.save();ctx.globalAlpha=a;ctx.font=`900 48px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
+    const txt=LYRICS[i].s,w=ctx.measureText(txt).width+90;
+    ctx.fillStyle='rgba(58,51,70,.55)';ctx.beginPath();ctx.roundRect(W/2-w/2,H-128,w,78,39);ctx.fill();
+    ctx.fillStyle='#fff1c9';ctx.fillText(txt,W/2,H-88);ctx.restore();}
+}
+
+function renderAt(t){
+  t=clamp(t,START,END);const be=beatInfo(t),c=cam(t);
+  // 第一遍:整个世界画到离屏画布,再按饱和度贴上来(你走后世界是褪色的)
+  ctx=buf;buf.setTransform(1,0,0,1,0,0);buf.globalAlpha=1;
+  buf.save();buf.translate(W/2,H/2);buf.scale(c.z,c.z);buf.translate(-c.x,-c.y);scene(t,be,'all');buf.restore();
+  ctx=M;M.setTransform(1,0,0,1,0,0);M.globalAlpha=1;
+  M.filter=`saturate(${sat(t).toFixed(3)})`;M.drawImage(buf.canvas,0,0);M.filter='none';
+  // 第二遍:只有被“你”改变过的那些紫色碎片,始终保留颜色
+  M.save();M.translate(W/2,H/2);M.scale(c.z,c.z);M.translate(-c.x,-c.y);scene(t,be,'color');M.restore();
+  subtitle(t);
+  const f=Math.max(clamp(1-(t-START)/0.4),clamp((t-END+0.8)/0.8));if(f>0){M.fillStyle=`rgba(0,0,0,${f})`;M.fillRect(0,0,W,H);}
+}
+window.renderAt=renderAt;
+
+const rec=/[?&]record/.test(location.search),stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);stage.style.transform=`translate(${-W*s/2}px,${-H*s/2}px) scale(${s})`;}
+addEventListener('resize',fit);fit();
+window.ready=document.fonts.load('900 100px LJBlack').then(()=>document.fonts.ready).then(()=>{renderAt(START);return true;});
+if(rec){stage.style.transform='none';stage.style.left=stage.style.top='0';}
+else{
+  const au=document.getElementById('au');let raf=0;
+  const loop=()=>{const t=au.currentTime;if(t>=END){au.pause();renderAt(END);return;}renderAt(t);raf=requestAnimationFrame(loop);};
+  cv.addEventListener('click',()=>{if(au.paused){if(au.currentTime<START||au.currentTime>=END)au.currentTime=START;au.play();loop();}else{au.pause();cancelAnimationFrame(raf);}});
+}
+})();
+</script>
+</body>
+</html>
