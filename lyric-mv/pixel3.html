@@ -262,10 +262,11 @@ const blinkAt=(t,off=0)=>((t+off)%3.1)<0.12;
 
 /* ---------- 剧情时间点 ---------- */
 const T={turn:64.95,reach0:65.0,reach1:65.45,door0:65.55,door1:65.85,out0:65.9,out1:66.55,close0:66.55,close1:66.85,
-  lapse:67.0,sofa:L0(1),pick:71.55,mem:L0(2)+0.1,memOut:L0(3)+0.15,stand:78.3,walk0:78.55,walk1:79.55,street:L0(4),
+  lapse:66.95,lapseEnd:69.4,sofa:69.4,pick:71.55,mem:L0(2)+0.1,memOut:L0(3)+0.15,stand:78.3,walk0:78.55,walk1:79.55,street:L0(4),
   win:82.0,game:L0(5),shelf:L0(6),dark:90.9,off:91.55,out:92.5};
 const SHOTS=[
-  {id:'bye',t0:START,t1:T.lapse,d:0.3},{id:'lapse',t0:T.lapse,t1:T.sofa,d:0.3},{id:'sofa',t0:T.sofa,t1:T.mem,d:0.6},
+  {id:'bye',t0:START,t1:T.lapse,d:0.3},{id:'lapse',mode:'night',spot:[304,200,'back',1],t0:T.lapse,t1:67.75,d:0.55,x:1},
+  {id:'lapse',mode:'day',spot:[190,180,'sit',1],t0:67.75,t1:68.6,d:0.55,x:1},{id:'lapse',mode:'night',spot:[372,200,'stand',-1],t0:68.6,t1:T.sofa,d:0.3},{id:'sofa',t0:T.sofa,t1:T.mem,d:0.6},
   {id:'mem',t0:T.mem,t1:T.memOut,d:1.1},{id:'alone',t0:T.memOut,t1:T.street,d:0.35},{id:'street',t0:T.street,t1:T.win,d:0.35},
   {id:'win',t0:T.win,t1:T.shelf,d:0.0},{id:'shelf',t0:T.shelf,t1:T.dark,d:0.3},{id:'dark',t0:T.dark,t1:T.out,d:0.4},{id:'out',t0:T.out,t1:END+1,d:0}];
 
@@ -284,13 +285,12 @@ SH.bye=t=>{ // 黄昏,她拖着行李站在门口,回头,开门离开;他伸手�
   person(196,200,{kind:'boy',t,dir:-1,pose:'stand',face:'sad',blink:blinkAt(t),reach,breath:breath(t)});
   lights(t,{...LP.dusk,cam,t,pts:op>0?[{x:50,y:160,r:70*op,c:[1,0.85,0.6]}]:[]});beams('dusk',t);
 };
-SH.lapse=t=>{ // 全景延时:天色飞快轮换,窗光扫过地板,植物长高,他出现在屋里不同的地方
+SH.lapse=(t,s)=>{ // 全景延时:黑夜→白天→黑夜慢慢叠化,窗光移过地板,植物一点点长高,他出现在屋里不同的地方
   const cam={z:1,x:0,y:0};begin(cam);
-  const u=clamp((t-T.lapse)/(T.sofa-T.lapse),0,0.999),k=Math.floor(u*7),modes=['day','dusk','night','day','dusk','night','night'],mode=modes[Math.min(6,k)];
-  room(t,{sky:mode,boxes:k<2,cal:4+k*2,calFlip:(u*7)%1<0.3?1-((u*7)%1)/0.3:0,plant:0.15+u*0.85,lamp:mode==='night',rain:k>=5});emWindow();
-  g=xf;const spots=[[190,180,'sit',1],[304,200,'back',1],[372,200,'stand',-1],[100,200,'stand',1],[190,180,'sit',1],[304,200,'back',1],[190,180,'sit',1]];
-  const sp=spots[Math.min(6,k)];person(sp[0],sp[1],{kind:'boy',t,dir:sp[3],pose:sp[2],face:'n',blink:blinkAt(t)});
-  const L=mode==='night'?LP.night:mode==='dusk'?LP.dusk:LP.day;lights(t,{...L,cam,t,shaft:{...L.shaft,dx:L.shaft.dx+((u*7)%1)*90-40}});beams(mode,t);
+  const u=clamp((t-T.lapse)/(T.lapseEnd-T.lapse)),mode=s.mode,k=SHOTS.indexOf(s)-1,ul=clamp((t-s.t0)/(s.t1-s.t0));
+  room(t,{sky:mode,boxes:false,cal:6+k*4,plant:0.15+u*0.85,lamp:mode==='night',rain:k===2});emWindow();
+  g=xf;const sp=s.spot;person(sp[0],sp[1],{kind:'boy',t,dir:sp[3],pose:sp[2],face:'n',blink:blinkAt(t),breath:breath(t)});
+  const L=mode==='night'?LP.night:LP.day;lights(t,{...L,cam,t,shaft:{...L.shaft,dx:L.shaft.dx+ul*60-30}});beams(mode,t);
 };
 function sofaRoom(t,mode,o={}){
   room(t,{sky:mode==='mem'?'day':'night',rain:mode!=='mem',lamp:mode!=='mem',cal:14,plant:1});emWindow();
@@ -449,7 +449,7 @@ function glitch(t){const r=rnd(Math.floor(t*30));xo2.drawImage(CO,0,0);
   for(let k=0;k<8;k++){const y=Math.floor(r()*PH),h=2+Math.floor(r()*14),dx=Math.round((r()-0.5)*30);xo.drawImage(CO2,0,y,PW,h,dx,y,PW,h);}
   xo.fillStyle='rgba(255,80,120,.12)';xo.fillRect(0,0,PW,PH);}
 function shotHi(k,t,dst){
-  const s=SHOTS[k];SH[s.id](t);compose(xo);
+  const s=SHOTS[k];SH[s.id](t,s);compose(xo);
   if(s.id==='win'&&t>T.shelf-0.35)glitch(t);
   // 柔光:取亮部,缩小模糊后叠加
   const im=xo.getImageData(0,0,PW,PH),d=im.data;
@@ -458,7 +458,7 @@ function shotHi(k,t,dst){
   bl.clearRect(0,0,240,135);bl.filter='blur(3px)';bl.drawImage(BP,0,0,240,135);bl.filter='none';
   bl2.clearRect(0,0,120,68);bl2.filter='blur(4px)';bl2.drawImage(BP,0,0,120,68);bl2.filter='none';
   up.imageSmoothingEnabled=false;up.drawImage(CO,0,0,W,H);
-  const[s0,s1,ax,ay]=DRIFT[s.id],prv=SHOTS[k-1],a0=s.t0-(prv?prv.d/2:0),a1=s.t1+s.d/2,u=clamp((t-a0)/(a1-a0)),sc=lerp(s0,s1,eIO(u));
+  const[s0,s1,ax,ay]=DRIFT[s.id],prv=SHOTS[k-1],a0=s.id==='lapse'?T.lapse:s.t0-(prv?prv.d/2:0),a1=s.id==='lapse'?T.lapseEnd:s.t1+s.d/2,u=clamp((t-a0)/(a1-a0)),sc=lerp(s0,s1,eIO(u));
   dst.setTransform(sc,0,0,sc,ax*W*(1-sc),ay*H*(1-sc));dst.imageSmoothingEnabled=true;dst.drawImage(UP,0,0);
   dst.globalCompositeOperation='screen';dst.globalAlpha=0.55;dst.drawImage(BL,0,0,W,H);dst.globalAlpha=0.35;dst.drawImage(BL2,0,0,W,H);
   dst.globalAlpha=1;dst.globalCompositeOperation='source-over';dst.setTransform(1,0,0,1,0,0);
@@ -472,11 +472,8 @@ function renderAt(t){
   else if(SHOTS[i].d>0&&SHOTS[i+1]&&t>SHOTS[i].t1-SHOTS[i].d/2)j=i;
   M.setTransform(1,0,0,1,0,0);
   if(j<0)shotHi(i,t,M);
-  else if(SHOTS[j].d>=0.6){ // 回忆的进出用柔和的叠化
+  else{ // 镜头之间统一用柔和的叠化
     const p=(t-(SHOTS[j].t1-SHOTS[j].d/2))/SHOTS[j].d;shotHi(j,t,M);hb.clearRect(0,0,W,H);shotHi(j+1,t,hb);M.globalAlpha=eIO(clamp(p));M.drawImage(HB,0,0);M.globalAlpha=1;}
-  else{const p=(t-(SHOTS[j].t1-SHOTS[j].d/2))/SHOTS[j].d;shotHi(j,t,M);hb.clearRect(0,0,W,H);shotHi(j+1,t,hb);
-    const mi=mk.createImageData(PW,PH),md=mi.data;for(let y=0,q=0;y<PH;y++)for(let x=0;x<PW;x++,q+=4)md[q+3]=B8[(y&7)*8+(x&7)]<p?255:0;mk.putImageData(mi,0,0);
-    hb.globalCompositeOperation='destination-in';hb.imageSmoothingEnabled=false;hb.drawImage(MK,0,0,W,H);hb.globalCompositeOperation='source-over';M.drawImage(HB,0,0);}
   M.imageSmoothingEnabled=false;
   sb.clearRect(0,0,960,540);hud(t);subtitle(t);M.drawImage(SUB,0,0,W,H);
   const f=Math.max(clamp(1-(t-START)/0.4),clamp((t-END+0.9)/0.9));if(f>0){M.fillStyle=`rgba(0,0,0,${f})`;M.fillRect(0,0,W,H);}
