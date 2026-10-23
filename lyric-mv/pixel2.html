@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>被你改变的那部分我 · 像素小人</title>
+<style>
+@font-face{font-family:'LJBlack';src:url(fonts/black.woff2) format('woff2');font-weight:900}
+@font-face{font-family:'LJBold';src:url(fonts/bold2.woff2) format('woff2');font-weight:700}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+canvas{width:1920px;height:1080px;display:block;cursor:pointer;image-rendering:pixelated}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<audio id="au" src="song2.mp3" preload="auto"></audio>
+<script src="data2.js"></script>
+<script>
+(()=>{
+/* 《被你改变的那部分我》1:04–1:35 像素小人版:
+   整个画面直接画在 320×180 的像素画布上(整数坐标、无抗锯齿),再放大 6 倍 */
+const W=1920,H=1080,PW=320,PH=180,START=64.3,END=95.0;
+const cv=document.getElementById('c'),M=cv.getContext('2d');
+const mkc=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
+const A=mkc(PW,PH),a=A.getContext('2d',{willReadFrequently:true});   // 画世界
+const B=mkc(PW,PH),b=B.getContext('2d',{willReadFrequently:true});   // 调色后 + 字幕
+const TXT=mkc(640,60),tx=TXT.getContext('2d',{willReadFrequently:true});
+const SUB=mkc(640,360),sb=SUB.getContext('2d');   // 字幕层:比画面细一倍的像素,保证汉字看得清
+const FONT='"LJBlack","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+const clamp=(x,lo=0,hi=1)=>Math.min(hi,Math.max(lo,x));
+const lerp=(p,q,t)=>p+(q-p)*t;
+const eOut=t=>1-Math.pow(1-t,3);
+const eIO=t=>t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const rnd=seed=>{let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};};
+function beatInfo(t){const BT=BEATS;if(t<BT[0])return{i:-1,ph:1,pulse:0};let lo=0,hi=BT.length-1;
+  while(lo<hi){const m=(lo+hi+1)>>1;if(BT[m]<=t)lo=m;else hi=m-1;}const iv=(BT[lo+1]||BT[lo]+0.5)-BT[lo],ph=clamp((t-BT[lo])/iv);return{i:lo,ph,pulse:Math.exp(-ph*5)};}
+const L0=k=>LYRICS[13+k].t,LEND=LYRICS[19].t+6.4;
+
+/* ---------- 像素画工具 ---------- */
+const R=(x,y,w,h,c)=>{a.fillStyle=c;a.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));};
+const P=(x,y,c)=>R(x,y,1,1,c);
+function spr(rows,pal,x,y,flip){const w=rows[0].length;rows.forEach((row,j)=>{for(let i=0;i<w;i++){const ch=row[i];if(ch==='.')continue;P(x+(flip?w-1-i:i),y+j,pal[ch]);}});}
+function pixText(ctx2,str,x,y,size,col,align='left'){ // 小字号写字再二值化,得到硬边像素字
+  tx.clearRect(0,0,640,60);tx.font=`700 ${size}px "LJBold",${FONT}`;tx.textBaseline='middle';tx.textAlign='left';tx.fillStyle=col;tx.fillText(str,2,30);
+  const w=Math.ceil(tx.measureText(str).width)+4,im=tx.getImageData(0,0,640,60),d=im.data;for(let k=3;k<d.length;k+=4)d[k]=d[k]>100?255:0;tx.putImageData(im,0,0);
+  const x0=align==='center'?Math.round(x-w/2):x;ctx2.drawImage(TXT,0,0,w,60,x0,Math.round(y-30),w,60);return w;}
+// 3×5 像素数字(日历用)
+const DIG=['111101101101111','010110010010111','111001111100111','111001111001111','101101111001001','111100111001111','111100111101111','111001001001001','111101111101111','111101111001111'];
+function digits(str,x,y,c){for(let n=0;n<str.length;n++){const g=DIG[+str[n]];for(let k=0;k<15;k++)if(g[k]==='1')P(x+n*4+k%3,y+Math.floor(k/3),c);}}
+
+/* ---------- 角色 ---------- */
+const SKIN='#f2c7a5';
+const BOY=['....KKKK....','...KKKKKK...','..KKKKKKKK..','..KKSSSSKK..','..KSSSSSSK..','..SSSSSSSS..','..SSSSSSSS..','...SSSSSS...','....SSSS....',
+  '...BBBBBB...','..BBBBBBBB..','.SBBBBBBBBS.','.SBBBBBBBBS.','.SBBBBBBBBS.','..BBBBBBBB..','..BBBBBBBB..'];
+const GIRL=['....HHHH....','...HHHHHH...','..HHHHHHHH..','..HHSSSSHH..','..HSSSSSSH..','..HSSSSSSH..','..HSSSSSSH..','..HHSSSSHH..','..HH.SS.HH..',
+  '..HRRRRRRH..','..RRRRRRRR..','.SRRRRRRRRS.','.SRRRRRRRRS.','..RRRRRRRR..','.RRRRRRRRRR.','.RRRRRRRRRR.','RRRRRRRRRRRR'];
+const BOYPAL={K:'#2b2433',S:SKIN,B:'#4f7fc4'},GIRLPAL={H:'#7a4a3a',S:SKIN,R:'#e88aa8'};
+// 画一个小人:x 是左边,y 是脚底;pose: stand / walk / sit / hold / hug;face: n / smile / sad / happy
+function person(kind,x,y,o){
+  const t=o.t,flip=o.dir<0,pose=o.pose||'stand',face=o.face||'n',isBoy=kind==='boy';
+  const top=isBoy?y-22:y-21,sitDy=pose==='sit'?5:0;
+  const body=isBoy?BOY:GIRL,pal=isBoy?BOYPAL:GIRLPAL,bodyY=top+sitDy;
+  // 腿
+  const legC=isBoy?'#3a3f58':SKIN,shoe=isBoy?'#eeeeee':'#ffffff',ly=bodyY+(isBoy?16:17),fr=pose==='walk'?Math.floor(t*8)%2:-1;
+  if(pose==='sit'){R(x+2,ly,10,2,legC);R(x+(flip?-2:10),ly,4,2,legC);R(x+(flip?-3:13),ly+2,3,2,shoe);R(x+2,ly+2,2,3,legC);}
+  else for(const[lx,k]of[[3,0],[7,1]]){const up=fr===k?1:0,len=isBoy?5:4;R(x+lx,ly-up,isBoy?3:2,len,legC);R(x+lx-(isBoy?0:1),ly+len-up,3,1,shoe);}
+  spr(body,pal,x,bodyY,flip);
+  // 脸
+  const fx=c=>x+(flip?11-c:c),ey=bodyY+5;
+  const eyeC='#2b2433';
+  if(face==='happy'){P(fx(4),ey,eyeC);P(fx(3),ey+1,eyeC);P(fx(5),ey+1,eyeC);P(fx(8),ey,eyeC);P(fx(7),ey+1,eyeC);P(fx(9),ey+1,eyeC);}
+  else if(!o.blink){R(fx(4),ey,1,2,eyeC);R(fx(7),ey,1,2,eyeC);}
+  else{P(fx(4),ey+1,eyeC);P(fx(7),ey+1,eyeC);}
+  const my=bodyY+7,mc='#b0505e';
+  if(face==='smile'||face==='happy'){P(fx(4),my,mc);P(fx(5),my+1,mc);P(fx(6),my+1,mc);P(fx(7),my,mc);}
+  else if(face==='sad'){P(fx(4),my+1,mc);P(fx(5),my,mc);P(fx(6),my,mc);P(fx(7),my+1,mc);}
+  else{P(fx(5),my,mc);P(fx(6),my,mc);}
+  P(fx(3),ey+2,'#f19aa0');P(fx(8),ey+2,'#f19aa0');
+  // 手
+  if(pose==='hold'||pose==='hug'||o.hold){const hx=flip?x-3:x+11;R(hx,bodyY+11,4,2,isBoy?'#4f7fc4':'#e88aa8');R(flip?hx-1:hx+3,bodyY+11,2,2,SKIN);}
+  // 眼泪
+  if(o.tears){for(let k=0;k<2;k++){const ph=(t*1.4+k*0.5)%1;for(const c of[4,7])P(fx(c),ey+2+Math.floor(ph*9),'#8fd3ff');}}
+}
+function suitcase(x,y){R(x,y-9,8,9,'#e9a86b');R(x,y-6,8,1,'#c98a50');R(x+2,y-11,4,1,'#5a4a40');R(x+2,y-11,1,2,'#5a4a40');R(x+5,y-11,1,2,'#5a4a40');R(x+1,y,2,1,'#3a3346');R(x+5,y,2,1,'#3a3346');}
+function bear(x,y){const C='#a07050',D='#7a5038';R(x+1,y-10,3,3,C);R(x+7,y-10,3,3,C);R(x+1,y-9,9,9,C);R(x+3,y-6,1,1,'#2b2433');R(x+7,y-6,1,1,'#2b2433');R(x+4,y-4,3,2,'#e8c8a8');P(x+5,y-4,D);R(x+2,y-1,3,1,D);R(x+6,y-1,3,1,D);}
+function scarf(x,y){R(x,y,9,3,'#ff8fb0');R(x+1,y+1,7,1,'#ffb3c8');for(let k=0;k<3;k++)P(x+k*3,y+3,'#ff8fb0');}
+function heart(x,y,c,empty){const H=['.##.##.','#######','#######','.#####.','..###..','...#...'];H.forEach((r,j)=>{for(let i=0;i<7;i++)if(r[i]==='#')P(x+i,y+j,empty?'#5a4a5e':c);});
+  if(!empty){P(x+1,y+1,'#fff');}}
+function polaroid(x,y,c){R(x,y,7,8,'#f4f0f0');R(x+1,y+1,5,4,c);}
+
+/* ---------- 房间 ---------- */
+function room(t,o){
+  // 墙和地板
+  R(0,0,PW,150,'#b9aec4');for(let x=0;x<PW;x+=16)R(x,0,1,150,'#ad a2b8'.replace(' ',''));
+  R(0,118,PW,2,'#a397b0');R(0,150,PW,30,'#8a6e60');for(let x=0;x<PW;x+=24)R(x+((Math.floor(x/24)%2)*12),150,1,30,'#77594c');R(0,150,PW,1,'#6b5048');
+  // 窗户:外面的天空按剧情变化
+  const wx=196,wy=34,ww=68,wh=64;
+  R(wx-3,wy-3,ww+6,wh+6,'#f4efe8');
+  let sky=o.sky||'#f3a76a';R(wx,wy,ww,wh,sky);
+  if(o.skyFn)o.skyFn(wx,wy,ww,wh);
+  if(o.rain){const r=rnd(Math.floor(t*12));for(let k=0;k<26;k++){const xx=wx+Math.floor(r()*ww),yy=wy+Math.floor(r()*(wh-4));R(xx,yy,1,4,'#9fb6d8');}}
+  R(wx+ww/2-1,wy,2,wh,'#f4efe8');R(wx,wy+wh/2-1,ww,2,'#f4efe8');R(wx-6,wy+wh+3,ww+12,3,'#e8e0d6');
+  // 门
+  const dx=16,dy=78;R(dx-2,dy-2,30,74,'#7a5a4a');
+  if(o.doorOpen>0){R(dx,dy,26,72,'#2a2030');const dw=Math.round(26*(1-o.doorOpen));R(dx,dy,dw,72,'#c0906a');}
+  else{R(dx,dy,26,72,'#c0906a');R(dx+3,dy+4,20,28,'#b38260');R(dx+3,dy+38,20,28,'#b38260');R(dx+21,dy+38,2,4,'#f0d070');}
+  // 日历
+  const cx=62,cy=56;R(cx,cy,18,20,'#ffffff');R(cx,cy,18,5,'#e05a5a');
+  const page=o.calPage||0;R(cx+3,cy+8,12,9,'#f0eaea');digits(String(12+page%19),cx+5,cy+10,'#3a3346');
+  if(o.calFlip){R(cx,cy+5,18,Math.round(15*o.calFlip),'#fff6f0');}
+  // 书架
+  R(270,70,40,3,'#7a5a4a');R(270,100,40,3,'#7a5a4a');R(272,62,4,8,'#5a8fd0');R(277,64,4,6,'#e0a050');R(282,61,3,9,'#7fbf7f');R(288,92,10,8,'#c8a070');
+  // 墙上的合照(两个小人)
+  R(110,64,26,20,'#7a5a4a');R(112,66,22,16,o.photo?'#f6d9b8':'#d8d0c8');
+  if(o.photo){R(117,72,4,7,'#4f7fc4');R(117,69,4,3,SKIN);R(117,68,4,1,'#2b2433');R(125,72,4,7,'#e88aa8');R(125,69,4,3,SKIN);R(124,68,6,1,'#7a4a3a');R(124,69,1,4,'#7a4a3a');R(129,69,1,4,'#7a4a3a');P(122,70,'#ff6f90');P(123,70,'#ff6f90');}
+  // 绿植
+  R(172,138,10,12,'#c87a50');R(172,138,10,2,'#a8603c');for(const[dx2,dy2]of[[0,-6],[3,-10],[6,-7],[9,-12],[-2,-11],[5,-15],[2,-4]])R(172+dx2,138+dy2,4,4,'#5f9a5f');
+  // 落地灯
+  R(76,96,2,54,'#5a4a50');R(72,149,10,2,'#5a4a50');R(69,86,16,10,o.lamp?'#ffe3a0':'#9a8c7a');
+  // 地毯
+  R(84,146,96,4,'#c78a8a');R(88,147,88,2,'#d8a0a0');
+  // 沙发
+  R(92,124,70,8,'#6f8fb0');R(88,120,8,30,'#5f7fa0');R(158,120,8,30,'#5f7fa0');R(92,132,70,14,'#7f9fc0');R(94,146,4,4,'#4a3a32');R(156,146,4,4,'#4a3a32');
+  // 纸箱(搬家)
+  if(o.boxes){R(46,134,20,16,'#c9a26e');R(46,134,20,2,'#b08850');R(55,134,2,16,'#d8bd8a');R(50,124,14,10,'#c9a26e');R(56,124,2,10,'#d8bd8a');}
+}
+// 日历上的数字(只有 ASCII 数字,用 6px 小字)
+function pixTextSmall(str,x,y){a.save();a.font=`900 7px ${FONT}`;a.textAlign='center';a.textBaseline='middle';a.fillStyle='#3a3346';a.fillText(str,x,y);a.restore();}
+
+/* ---------- 剧情时间点 ---------- */
+const T={exit0:START+0.2,exitDoor:L0(0)+1.0,doorClose:L0(0)+1.3,grow0:L0(0)+1.5,
+  sofa0:L0(1)+0.1,sofa1:L0(1)+0.9,scarf:L0(2)-0.2,flash0:L0(2)+0.1,flash1:L0(3)+0.1,dissolve:L0(3)+0.1,
+  win0:L0(4)-0.3,win1:L0(4)+0.4,street0:L0(4)+0.7,street1:L0(5)-0.15,
+  game0:L0(5)+0.1,collect0:L0(6)+0.1,shelf:L0(6)+3.0,lightsOff:L0(6)+4.0,outside:L0(6)+4.6};
+
+/* ---------- 窗外街景(特写) ---------- */
+function street(t){
+  R(0,0,PW,PH,'#1d2340');
+  const r=rnd(3);for(let k=0;k<30;k++)P(Math.floor(r()*PW),Math.floor(r()*70),'#7a80b0');
+  // 远处楼房
+  for(let k=0;k<9;k++){const bx=k*38-6,bh=50+Math.floor(r()*40);R(bx,120-bh,32,bh,'#2c3358');for(let j=0;j<6;j++)if(r()<0.5)R(bx+4+(j%3)*9,128-bh+Math.floor(j/3)*12,4,5,'#f0d070');}
+  R(0,120,PW,60,'#2a2c40');R(0,138,PW,2,'#3a3d58');
+  // 路灯和光锥
+  R(150,60,2,78,'#555a70');R(144,58,12,3,'#555a70');a.fillStyle='rgba(255,230,150,.22)';a.beginPath();a.moveTo(146,61);a.lineTo(154,61);a.lineTo(178,138);a.lineTo(122,138);a.closePath();a.fill();R(147,61,6,2,'#ffe9a0');
+  R(122,140,56,3,'rgba(255,230,150,.25)');
+  // 她撑着伞走远
+  const p=clamp((t-T.street0)/(T.street1-T.street0)),gx=Math.round(lerp(190,60,p)),gy=150;
+  a.save();a.translate(gx,gy);a.scale(2,2);
+  const C='#141420',st=Math.floor(t*6)%2;R(3,-12,5,10,C);R(4,-15,3,3,C);R(3,-2,1,2-st,C);R(6,-2,1,1+st,C);
+  R(-2,-20,15,3,'#e88aa8');R(0,-22,11,2,'#e88aa8');R(5,-17,1,6,'#555');
+  R(8,-6,4,5,'#7a5040');a.restore();
+  // 雨
+  const rr=rnd(Math.floor(t*14));for(let k=0;k<70;k++)R(Math.floor(rr()*PW),Math.floor(rr()*PH),1,5,'#8ea6d0');
+  // 窗框(从屋里往外看)
+  R(0,0,PW,10,'#e8e0d6');R(0,PH-14,PW,14,'#e8e0d6');R(0,0,12,PH,'#e8e0d6');R(PW-12,0,12,PH,'#e8e0d6');R(PW/2-3,0,6,PH,'#e8e0d6');
+  // 玻璃上的雨痕
+  for(let k=0;k<8;k++){const xx=20+k*37,len=10+((t*20+k*13)%30);R(xx,12,1,len,'rgba(200,220,255,.4)');}
+}
+/* ---------- 楼外夜景(结尾) ---------- */
+function outside(t){
+  R(0,0,PW,PH,'#141a33');const r=rnd(8);for(let k=0;k<50;k++){const tw=Math.sin(t*3+k)>0.2;if(tw)P(Math.floor(r()*PW),Math.floor(r()*90),'#c8cff0');}
+  R(270,20,14,14,'#f4ecc8');R(274,22,4,4,'#e4dcb0');
+  R(90,40,140,140,'#2a2f4f');R(86,36,148,6,'#353b5e');
+  for(let j=0;j<6;j++)for(let i=0;i<6;i++){const wx=100+i*21,wy=50+j*20,me=i===3&&j===2;let c=r()<0.3?'#e8c870':'#1d2240';
+    if(me)c=t<T.outside+0.8?'#ffd98a':'#1d2240';R(wx,wy,12,12,c);R(wx+5,wy,2,12,'#2a2f4f');
+    if(me&&t<T.outside+0.8){R(wx+2,wy+5,3,7,'#3a3040');R(wx+2,wy+3,3,2,'#3a3040');}}
+  R(0,170,PW,10,'#1a1e36');
+}
+
+/* ---------- 游戏界面 ---------- */
+function gameUI(t,be){
+  const p=clamp((t-T.game0)/0.3);if(p<=0)return;
+  const n=5-Math.min(5,Math.floor(clamp((t-T.game0-0.4)/3.4)*5.99));
+  // 左上角血条
+  R(8,8,70,14,'#2a2040');R(9,9,68,12,'#f6f0ff');R(10,10,66,10,'#2a2040');
+  a.save();a.font=`700 8px "LJBold",${FONT}`;a.fillStyle='#ffd84a';a.textBaseline='middle';a.fillText('HP',13,15.5);a.restore();
+  for(let k=0;k<5;k++)heart(27+k*9,12,'#ff5a7a',k>=n);
+  // 对话框:SAVE?
+  const bx=210,by=96,bw=100,bh=34;R(bx,by,bw,bh,'#2a2040');R(bx+1,by+1,bw-2,bh-2,'#f6f0ff');R(bx+3,by+3,bw-6,bh-6,'#2a2040');
+  a.save();a.font=`900 9px ${FONT}`;a.fillStyle='#f6f0ff';a.textBaseline='middle';a.fillText('SAVE?',bx+8,by+11);
+  const sel=Math.floor((t-T.game0)*2.2)%2;a.fillText('YES',bx+18,by+24);a.fillText('NO',bx+62,by+24);a.restore();
+  if(Math.floor(t*4)%2===0){const cx=sel?bx+54:bx+10;R(cx,by+21,2,6,'#ffd84a');R(cx+2,by+22,1,4,'#ffd84a');R(cx+3,by+23,1,2,'#ffd84a');}
+}
+
+/* ---------- 镜头:每个镜头一个整数倍放大,平移也按整像素走,画面始终是干净的像素格 ---------- */
+function cam(t){
+  if(t<T.grow0)return{z:2,x:8,y:76};
+  if(t<T.sofa0)return{z:1,x:0,y:0};
+  if(t<T.win0)return{z:2,x:52,y:74};
+  if(t<T.street0){const p=eIO(clamp((t-T.win0)/(T.win1-T.win0)));return{z:2,x:Math.round(lerp(52,150,p)),y:Math.round(lerp(74,64,p))};}
+  return{z:2,x:150,y:64};
+}
+const CUTS=[T.street0,T.street1,T.outside];
+function iris(ctx2,t){ // 游戏式圆形转场
+  for(const c of CUTS){const d=Math.abs(t-c);if(d>=0.24)continue;const Rr=(d/0.24)*190,cx=160,cy=90;ctx2.fillStyle='#000';
+    for(let y=0;y<PH;y++){const dy=y+0.5-cy;if(Math.abs(dy)>=Rr){ctx2.fillRect(0,y,PW,1);continue;}const hw=Math.round(Math.sqrt(Rr*Rr-dy*dy));ctx2.fillRect(0,y,Math.max(0,cx-hw),1);ctx2.fillRect(cx+hw,y,PW,1);}}
+}
+
+/* ---------- 一帧 ---------- */
+function world(t,be){
+  if(t>=T.street0&&t<T.street1){street(t);return{warm:0,dark:0};}
+  if(t>=T.outside){outside(t);return{warm:0,dark:0};}
+  // 窗外天色:一开始黄昏;“长大”时昼夜飞快交替;之后是夜晚下雨
+  let sky='#f3a76a',rain=false,skyFn=null;
+  if(t>T.grow0&&t<L0(1)){const k=(t-T.grow0)*2.4;const cols=['#f3a76a','#8fc4f0','#f3a76a','#2a3060'];sky=cols[Math.floor(k)%4];}
+  if(t>=L0(1))sky='#2a3060';
+  if(t>=L0(1)&&t<T.flash0)skyFn=null;
+  if(t>=T.flash0&&t<T.flash1)sky='#9fd4ff';
+  if(t>=T.flash1)rain=true;
+  if(t>=T.flash1)skyFn=(x,y,w,h)=>{R(x+48,y+8,8,8,'#f0e8c8');};
+  const doorOpen=t<T.exitDoor?0:t<T.doorClose?1:0;
+  const page=t>T.grow0&&t<L0(1)?Math.floor((t-T.grow0)*7):t>=L0(1)?14:0;
+  const calFlip=t>T.grow0&&t<L0(1)?((t-T.grow0)*7)%1:0;
+  const C=cam(t);a.setTransform(C.z,0,0,C.z,-C.x*C.z,-C.y*C.z);
+  room(t,{sky,rain,skyFn,doorOpen,calPage:page,calFlip,boxes:t<L0(2),photo:true,lamp:t<T.lightsOff});
+  // 她:拖着行李走出门
+  if(t<T.doorClose){const p=clamp((t-T.exit0)/(T.exitDoor-T.exit0)),gx=Math.round(lerp(78,22,eIO(p)));
+    if(t<T.exitDoor+0.15){suitcase(gx+12,150);person('girl',gx,150,{t,dir:-1,pose:p<1?'walk':'stand',face:'sad'});}}
+  // 他
+  let bx=150,dir=-1,pose='stand',face='sad',tears=false,blink=(t%3.2)<0.12;
+  if(t<T.doorClose){pose='hold';dir=-1;}
+  if(t>T.sofa0){const p=clamp((t-T.sofa0)/(T.sofa1-T.sofa0));bx=Math.round(lerp(150,108,eIO(p)));pose=p<1?'walk':'sit';dir=-1;}
+  if(t>T.sofa1){dir=1;pose='sit';}
+  let hold=false;if(t>T.scarf&&t<T.flash1+0.6){if(pose==='sit')hold=true;else pose='hold';}
+  if(t>=T.flash0&&t<T.flash1){face='happy';}
+  if(t>=T.win0){const p=clamp((t-T.win0)/(T.win1-T.win0));bx=Math.round(lerp(108,214,eIO(p)));pose=p<1?'walk':'stand';dir=1;face='smile';tears=t>T.win1;}
+  if(t>=T.street1){bx=214;pose='stand';dir=-1;face='sad';tears=false;}
+  if(t>=T.collect0){const p=clamp((t-T.collect0)/2.8);bx=Math.round(lerp(214,236,p));pose=t<T.shelf?'hold':'stand';face='n';dir=1;}
+  const by=t>T.sofa1&&t<T.win0?135:150;
+  // 小熊抱在怀里 / 放在旁边
+  if(t>T.sofa1&&t<T.win0)bear(dir>0?bx+13:bx-12,134);
+  if(t>T.scarf&&t<T.flash1+0.6)scarf(bx+(dir>0?12:-9),by-14);
+  // 回忆:她坐在旁边,头上冒爱心;回忆结束时碎成像素块飘散
+  if(t>=T.flash0&&t<T.dissolve+0.9){
+    const gx=134;if(t<T.dissolve){person('girl',gx,134,{t,dir:-1,pose:'sit',face:'happy'});const hy=Math.round(100-((t*6)%12));heart(126,hy,'#ff6f90');}
+    else{const q=clamp((t-T.dissolve)/0.9),r=rnd(12);for(let k=0;k<40;k++){const px0=gx+Math.floor(r()*12),py0=116+Math.floor(r()*18);P(px0+Math.round((r()-0.5)*30*q),py0-Math.round(q*40*(0.5+r())),r()<0.5?'#e88aa8':'#7a4a3a');}}}
+  person('boy',bx,by,{t,dir,pose,face,tears,blink,hold});
+  // 收集拍立得 → 放进纸箱 → 放上书架
+  if(t>=T.collect0){
+    const boxX=t<T.shelf?262:Math.round(lerp(262,290,eIO(clamp((t-T.shelf)/0.6)))),boxY=t<T.shelf?150:Math.round(lerp(150,100,eIO(clamp((t-T.shelf)/0.6))));
+    R(boxX-9,boxY-12,18,12,'#c9a26e');R(boxX-9,boxY-12,18,2,'#b08850');heart(boxX-3,boxY-8,'#ff6f90');
+    const cols=['#f3a76a','#9fd4ff','#ff8fb0','#7fbf7f','#e0c050'];
+    for(let k=0;k<5;k++){const st=T.collect0+0.3+k*0.5,q=clamp((t-st)/0.45);if(q>=1)continue;
+      const sx=168+k*16,sy=112+(k%2)*14;polaroid(Math.round(lerp(sx,boxX-3,eIO(q))),Math.round(lerp(sy,boxY-16,eIO(q))-Math.sin(q*Math.PI)*24),cols[k]);}
+  }
+  a.setTransform(1,0,0,1,0,0);
+  if(t>=T.game0&&t<T.collect0+0.3)gameUI(t,be);
+  // 关灯:屋里暗下来,只剩窗外月光
+  const dark=t>T.lightsOff?clamp((t-T.lightsOff)/0.2)*0.6:0;
+  return{warm:t>=T.flash0&&t<T.flash1?1:0,dark};
+}
+
+function subtitle(t){ // 画在 640×360 的字幕层上,像游戏里的对话框
+  sb.clearRect(0,0,640,360);
+  for(let i=13;i<=19;i++){const t0=LYRICS[i].t,t1=i<19?LYRICS[i+1].t:LEND;if(t<t0-0.15||t>=t1-0.05)continue;
+    const al=Math.min(clamp((t-t0+0.15)/0.2),clamp((t1-0.05-t)/0.2));if(al<0.05)return;
+    sb.font=`700 22px "LJBold",${FONT}`;const w=Math.ceil(sb.measureText(LYRICS[i].s).width)+32,ww=Math.round(w*eOut(al)/2)*2,xx=320-ww/2,y0=360-46,hh=34;
+    sb.fillStyle='#2a2040';sb.fillRect(xx+2,y0,ww-4,hh);sb.fillRect(xx,y0+2,ww,hh-4);sb.fillStyle='#f6f0ff';sb.fillRect(xx+2,y0+2,ww-4,hh-4);sb.fillStyle='#2a2040';sb.fillRect(xx+4,y0+4,ww-8,hh-8);
+    if(al>0.6)pixText(sb,LYRICS[i].s,320,y0+hh/2,22,'#fff1c9','center');
+    return;}
+}
+
+function renderAt(t){
+  t=clamp(t,START,END);const be=beatInfo(t);
+  a.setTransform(1,0,0,1,0,0);a.globalAlpha=1;a.imageSmoothingEnabled=false;
+  const st=world(t,be);
+  // 调色:现在是冷色、偏灰;回忆是暖色、鲜艳;关灯后变暗
+  b.setTransform(1,0,0,1,0,0);b.globalAlpha=1;b.imageSmoothingEnabled=false;
+  const sat=st.warm?1.15:0.55,bri=(st.warm?1.05:0.92)*(1-st.dark);
+  b.filter=`saturate(${sat}) brightness(${bri})${st.warm?' sepia(0.15)':' hue-rotate(-8deg)'}`;b.drawImage(A,0,0);b.filter='none';
+  iris(b,t);
+  subtitle(t);
+  M.setTransform(1,0,0,1,0,0);M.imageSmoothingEnabled=false;M.drawImage(B,0,0,W,H);M.drawImage(SUB,0,0,W,H);
+  const f=Math.max(clamp(1-(t-START)/0.4),clamp((t-END+0.8)/0.8));if(f>0){M.fillStyle=`rgba(0,0,0,${f})`;M.fillRect(0,0,W,H);}
+}
+window.renderAt=renderAt;
+
+const rec=/[?&]record/.test(location.search),stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);stage.style.transform=`translate(${-W*s/2}px,${-H*s/2}px) scale(${s})`;}
+addEventListener('resize',fit);fit();
+window.ready=document.fonts.load('900 100px LJBlack').then(()=>document.fonts.load('700 22px LJBold')).then(()=>document.fonts.ready).then(()=>{renderAt(START);return true;});
+if(rec){stage.style.transform='none';stage.style.left=stage.style.top='0';}
+else{
+  const au=document.getElementById('au');let raf=0;
+  const loop=()=>{const t=au.currentTime;if(t>=END){au.pause();renderAt(END);return;}renderAt(t);raf=requestAnimationFrame(loop);};
+  cv.addEventListener('click',()=>{if(au.paused){if(au.currentTime<START||au.currentTime>=END)au.currentTime=START;au.play();loop();}else{au.pause();cancelAnimationFrame(raf);}});
+}
+})();
+</script>
+</body>
+</html>
