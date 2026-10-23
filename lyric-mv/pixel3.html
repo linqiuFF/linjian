@@ -263,7 +263,7 @@ const blinkAt=(t,off=0)=>((t+off)%3.1)<0.12;
 /* ---------- 剧情时间点 ---------- */
 const T={turn:64.95,reach0:65.0,reach1:65.45,door0:65.55,door1:65.85,out0:65.9,out1:66.55,close0:66.55,close1:66.85,
   lapse:66.95,lapseEnd:69.4,sofa:69.4,pick:71.55,mem:L0(2)+0.1,memOut:L0(3)+0.15,stand:78.3,walk0:78.55,walk1:79.55,street:L0(4),
-  win:82.0,game:L0(5),shelf:L0(6),dark:90.9,off:91.55,out:92.5};
+  win:82.0,game:L0(5),shelf:L0(6),frag0:89.45,frag1:90.85,dark:91.2,off:91.85,out:92.6};
 const SHOTS=[
   {id:'bye',t0:START,t1:T.lapse,d:0.3},{id:'lapse',mode:'night',spot:[304,200,'back',1],t0:T.lapse,t1:67.75,d:0.55,x:1},
   {id:'lapse',mode:'day',spot:[190,180,'sit',1],t0:67.75,t1:68.6,d:0.55,x:1},{id:'lapse',mode:'night',spot:[372,200,'stand',-1],t0:68.6,t1:T.sofa,d:0.3},{id:'sofa',t0:T.sofa,t1:T.mem,d:0.6},
@@ -357,27 +357,49 @@ SH.win=t=>{ // 他背对镜头站在窗前,雨水的影子在他身上流;之后
   person(304,200,{kind:'boy',t,dir:1,pose:'back',breath:sigh||breath(t)});
   lights(t,{...LP.night,cam,t,streaks:{x:304,y:120}});
 };
-SH.shelf=t=>{ // 把回忆的拍立得一张张收进纸箱,搬上书架
-  const cam={z:2,x:240,y:80};begin(cam);room(t,{sky:'night',lamp:true,cal:14,plant:1});emWindow();g=xf;
-  const lift=clamp((t-90.2)/0.55),closed=t>89.95;
-  const bxp=lift>0?{x:lerp(366,412,eIO(lift)),y:lerp(185,89,eIO(lift))}:{x:366,y:185};
-  if(lift<=0)cbox(bxp.x,bxp.y,24,15,!closed);
-  person(lift>0?lerp(344,386,eIO(clamp(lift*1.6))):344,200,{kind:'boy',t,dir:1,pose:lift>0&&lift<0.6?'walk':'stand',ph:t*2.4,face:'n',blink:blinkAt(t),reach:lift>0.4?1:0,breath:breath(t)});
-  if(lift>0)cbox(bxp.x,bxp.y,24,15,false);
+/* 碎片的我:把小人画进小画布,胸口一块(心形)像素逐个脱落,化成光点飞进纸箱,身上留下缺口 */
+const SP=mkc(80,80),spx=ctxOf(SP);
+const hash2=(x,y)=>(((Math.imul(x,73856093)^Math.imul(y,19349663))>>>0)%1000)/1000;
+function brokenBoy(cx,y,o,pf,tgt){
+  const gg=g;g=spx;spx.setTransform(1,0,0,1,0,0);spx.clearRect(0,0,80,80);person(40,70,o);g=gg;
+  if(pf>0){
+    const im=spx.getImageData(0,0,80,80),d=im.data,hx=40+(o.dir>0?3:-3),hy=70-(o.breath||0)-15,parts=[];
+    for(let yy=0;yy<80;yy++)for(let xx=0;xx<80;xx++){const k=(yy*80+xx)*4;if(d[k+3]<200)continue;
+      const X=(xx-hx)/4.6,Y=-(yy-hy)/4.4+0.25,f=Math.pow(X*X+Y*Y-1,3)-X*X*Y*Y*Y,rv=hash2(xx,yy);
+      const inH=f<=0||(f<0.35&&rv<0.35);if(!inH)continue;
+      const dl=0.05+0.5*rv;if(pf<=dl)continue;
+      const q=clamp((pf-dl)/0.38);d[k+3]=0;
+      if(q<1)parts.push([xx,yy,q,rv,d[k],d[k+1],d[k+2]]);}
+    // 缺口边缘发一点暖光(像纸被烧开)
+    if(pf<1)for(let yy=1;yy<79;yy++)for(let xx=1;xx<79;xx++){const k=(yy*80+xx)*4;if(d[k+3]<200)continue;
+      if(d[k-1]===0&&d[k-4+3]===0||d[k+7]===0||d[k-320+3]===0||d[k+323]===0){const X=(xx-hx)/4.6,Y=-(yy-hy)/4.4+0.25;if(X*X+Y*Y<2.6){d[k]=255;d[k+1]=214;d[k+2]=160;}}}
+    spx.putImageData(im,0,0);
+    const g0=g;g=xg;
+    for(const[xx,yy,q,rv,r0,g1,b0]of parts){const sx=cx-40+xx,sy=y-70+yy,e=eIO(q),px=lerp(sx,tgt.x+(rv-0.5)*8,e)+Math.sin(q*6+rv*9)*2,py=lerp(sy,tgt.y,e)-Math.sin(q*Math.PI)*(10+rv*16);
+      const c=`rgb(${Math.round(lerp(r0,255,0.75))},${Math.round(lerp(g1,232,0.75))},${Math.round(lerp(b0,190,0.75))})`;R(px,py,1,1,c);}
+    g=g0;}
+  g.drawImage(SP,cx-40,y-70);
+}
+SH.shelf=t=>{ // 先把回忆的拍立得收进纸箱,再从自己身上掉下一部分,一起放进去
+  const cam={z:2,x:236,y:96};begin(cam);room(t,{sky:'night',lamp:true,cal:14,plant:1});emWindow();g=xf;
+  const closed=t>T.frag1;cbox(300,185,24,15,!closed);
+  const pf=clamp((t-T.frag0)/(T.frag1-T.frag0-0.2));
+  brokenBoy(338,200,{kind:'boy',t,dir:-1,pose:'stand',face:pf>0&&pf<1?'closed':'sad',blink:blinkAt(t),breath:breath(t)},pf,{x:312,y:186});
   lights(t,{...LP.night,cam,t});
-  g=xg;const cols=['#f4a96b','#9fd4ff','#ff9db4','#8fcf8a','#f0d070'];
-  for(let k=0;k<5;k++){const st=T.shelf+0.15+k*0.36,q=clamp((t-st)/0.5);if(q<=0||q>=1)continue;
-    const sx=250+k*14,sy=120+(k%2)*20,x=lerp(sx,372,eIO(q)),y=lerp(sy,180,eIO(q))-Math.sin(q*Math.PI)*22;
-    g.fillStyle='rgba(255,236,190,.35)';g.fillRect(Math.round(x)-2,Math.round(y)-2,13,15);polaroid(x,y,cols[k]);
-    if(q>0.85){g.fillStyle='#fff6d0';g.fillRect(377,178-Math.round((q-0.85)*40),1,1);g.fillRect(381,176-Math.round((q-0.85)*30),1,1);}}
+  g=xg;const cols=['#f4a96b','#9fd4ff','#ff9db4'];
+  for(let k=0;k<3;k++){const st=T.shelf+0.1+k*0.4,q=clamp((t-st)/0.55);if(q<=0||q>=1)continue;
+    const sx=250+k*14,sy=118+(k%2)*18,x=lerp(sx,307,eIO(q)),y=lerp(sy,180,eIO(q))-Math.sin(q*Math.PI)*22;
+    g.fillStyle='rgba(255,236,190,.35)';g.fillRect(Math.round(x)-2,Math.round(y)-2,13,15);polaroid(x,y,cols[k]);}
+  if(t>T.shelf+0.4&&!closed){g.fillStyle='rgba(255,226,170,.45)';g.fillRect(302,184,20,1);}
 };
-SH.dark=t=>{ // 全景:关灯,只剩窗外月光
+SH.dark=t=>{ // 全景:关灯,只剩月光和箱子缝里透出的一点光;他胸口少了一块
   const cam={z:1,x:0,y:0};begin(cam);const on=t<T.off;
   room(t,{sky:on?'night':'dark',moon:!on,lamp:on,cal:14,plant:1});emWindow();g=xf;
-  cbox(412,89,24,15,false);
-  person(132,200,{kind:'boy',t,dir:-1,pose:'stand',face:'n',reach:t>T.off-0.35&&t<T.off+0.15?1:0,breath:breath(t),blink:blinkAt(t)});
+  cbox(300,185,24,15,false);
+  brokenBoy(132,200,{kind:'boy',t,dir:-1,pose:'stand',face:'n',reach:t>T.off-0.35&&t<T.off+0.15?1:0,breath:breath(t),blink:blinkAt(t)},1,{x:0,y:0});
   lights(t,on?{...LP.night,cam,t}:{...LP.dark,cam,t});beams(on?'night':'dark',t);
   g=xg;if(!on&&t<T.off+0.08){g.fillStyle='rgba(255,240,200,.5)';g.fillRect(110,118,21,16);}
+  const gl=0.45+0.25*Math.sin(t*3);g.fillStyle=`rgba(255,214,150,${gl})`;g.fillRect(301,185,22,1);g.fillRect(311,186,2,6);
 };
 SH.out=t=>{ // 楼外夜景,雨停了,他那扇窗的灯熄灭
   const cam={z:1,x:0,y:0};begin(cam);
@@ -412,14 +434,37 @@ function frame(x,y,w,h){x=Math.round(x);y=Math.round(y);w=Math.round(w);
   sb.fillStyle='#120e1c';sb.fillRect(x+4,y,w-8,h);sb.fillRect(x,y+4,w,h-8);sb.fillRect(x+2,y+2,w-4,h-4);
   sb.fillStyle='#efe2c9';sb.fillRect(x+4,y+2,w-8,2);sb.fillRect(x+4,y+h-4,w-8,2);sb.fillRect(x+2,y+4,2,h-8);sb.fillRect(x+w-4,y+4,2,h-8);
   sb.fillStyle='#2a2340';sb.fillRect(x+4,y+4,w-8,h-8);sb.fillStyle='#352c50';sb.fillRect(x+4,y+4,w-8,2);}
+const LYR=mkc(960,170),ly=LYR.getContext('2d'),LCACHE={};
+function glyphs(i){ // 每行字只栅格化一次:字形 + 2px 描边
+  if(LCACHE[i])return LCACHE[i];const str=LYRICS[i].s;
+  tx.clearRect(0,0,960,80);tx.font=`700 32px ${FONT}`;tx.textBaseline='middle';tx.textAlign='left';tx.fillStyle='#fff';tx.fillText(str,8,40);
+  const w=Math.min(960,Math.ceil(tx.measureText(str).width)+16),h=80,d=tx.getImageData(0,0,w,h).data,F=new Uint8Array(w*h),O=new Uint8Array(w*h);
+  for(let k=0;k<w*h;k++)F[k]=d[k*4+3]>110?1:0;
+  let y0=h,y1=0;for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(F[y*w+x]){if(y<y0)y0=y;if(y>y1)y1=y;
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const X=x+dx,Y=y+dy;if(X>=0&&Y>=0&&X<w&&Y<h&&!F[Y*w+X])O[Y*w+X]=1;}}
+  return LCACHE[i]={w,h,F,O,y0,y1};
+}
 function subtitle(t){
-  for(let i=13;i<=19;i++){const t0=LYRICS[i].t,t1=i<19?LYRICS[i+1].t:LEND;if(t<t0-0.15||t>=t1-0.05)continue;
-    const al=Math.min(clamp((t-t0+0.15)/0.22),clamp((t1-0.05-t)/0.22));if(al<0.05)return;
-    sb.font=`700 30px ${FONT}`;const w=Math.ceil(sb.measureText(LYRICS[i].s).width)+64,ww=Math.round(w*eOut(al)/2)*2,y0=540-74;
-    frame(480-ww/2,y0,ww,52);
-    if(al>0.7){pixText(LYRICS[i].s,480,y0+28,30,'#0f0b16');pixText(LYRICS[i].s,480,y0+26,30,'#fff3da');
-      if(Math.floor(t*2.5)%2===0){const ax=480+ww/2-18,ay=y0+38;sb.fillStyle='#f2c46a';sb.fillRect(ax,ay,6,2);sb.fillRect(ax+2,ay+2,2,2);}}
-    return;}
+  ly.clearRect(0,0,960,170);
+  for(let i=13;i<=19;i++){const t0=LYRICS[i].t,t1=i<19?LYRICS[i+1].t:LEND;if(t<t0-0.15||t>=t1)continue;
+    const G=glyphs(i),{w,h,F,O,y0,y1}=G,str=LYRICS[i].s;
+    const pin=clamp((t-t0+0.15)/0.4),pout=clamp((t-(t1-0.5))/0.5),oy=Math.round((1-eOut(pin))*5)*2;
+    const dur=Math.max(0.6,Math.min(t1-t0-0.6,str.replace(/ /g,'').length*0.3)),sweep=clamp((t-t0)/dur)*w;
+    const im=ly.createImageData(960,170),D=im.data,X0=480-(w>>1),Y0=70;
+    const put=(x,y,r,g2,b,a)=>{if(x<0||y<0||x>=960||y>=170)return;const k=(y*960+x)*4;if(a<D[k+3]*0.9&&D[k+3]>0&&a<255)return;D[k]=r;D[k+1]=g2;D[k+2]=b;D[k+3]=a;};
+    for(const pass of[0,1,2]){ // 0 阴影 1 描边 2 字
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++){const k=y*w+x,isF=F[k],isO=O[k];if(pass===2?!isF:!(isF||isO))continue;if(pass===1&&isF)continue;
+        const cx=x>>1,cy=y>>1;if(pin<1&&B4[(cy&3)*4+(cx&3)]>=pin)continue;
+        let dx=0,dy=0,a=255;const rr=hash2(cx+i*131,cy);
+        if(pout>0){const qq=clamp((pout-rr*0.55)/0.45);if(qq>0){dy=-Math.round(qq*qq*34/2)*2;dx=Math.round(Math.sin(rr*23)*qq*5)*2;a=Math.round(255*(1-qq));if(pass<2&&qq>0.2)continue;}}
+        const X=X0+x+dx,Y=Y0+y+oy+dy+(pass===0?2:0);
+        if(pass===0){put(X,Y,12,8,22,Math.round(a*0.55));continue;}
+        if(pass===1){put(X,Y,27,20,40,a);continue;}
+        const low=(y-y0)/(y1-y0+1)>0.55,sung=x<sweep;
+        if(sung)low?put(X,Y,255,206,128,a):put(X,Y,255,248,232,a);
+        else low?put(X,Y,186,176,206,a):put(X,Y,236,232,244,a);}}
+    ly.putImageData(im,0,0);break;}
+  sb.drawImage(LYR,0,540-170-6);
 }
 function hud(t){
   if(t<T.game||t>=T.shelf)return;
@@ -447,7 +492,7 @@ const UP=mkc(W,H),up=UP.getContext('2d'),HB=mkc(W,H),hb=HB.getContext('2d'),MK=m
 const BP=mkc(PW,PH),bp=ctxOf(BP),BL=mkc(240,135),bl=BL.getContext('2d'),BL2=mkc(120,68),bl2=BL2.getContext('2d');
 // 每个镜头的推拉:s0→s1 倍,锚点(ax,ay)是画面比例
 const DRIFT={bye:[1.0,1.05,0.62,0.62],lapse:[1.05,1.0,0.5,0.55],sofa:[1.0,1.06,0.37,0.5],mem:[1.06,1.1,0.42,0.5],alone:[1.1,1.0,0.5,0.55],
-  street:[1.0,1.07,0.72,0.7],win:[1.0,1.08,0.5,0.62],shelf:[1.03,1.0,0.6,0.6],dark:[1.0,1.04,0.5,0.6],out:[1.0,1.07,0.47,0.62]};
+  street:[1.0,1.07,0.72,0.7],win:[1.0,1.08,0.5,0.62],shelf:[1.0,1.08,0.48,0.62],dark:[1.0,1.04,0.5,0.6],out:[1.0,1.07,0.47,0.62]};
 function glitch(t){const r=rnd(Math.floor(t*30));xo2.drawImage(CO,0,0);
   for(let k=0;k<8;k++){const y=Math.floor(r()*PH),h=2+Math.floor(r()*14),dx=Math.round((r()-0.5)*30);xo.drawImage(CO2,0,y,PW,h,dx,y,PW,h);}
   xo.fillStyle='rgba(255,80,120,.12)';xo.fillRect(0,0,PW,PH);}
@@ -478,6 +523,7 @@ function renderAt(t){
   else{ // 镜头之间统一用柔和的叠化
     const p=(t-(SHOTS[j].t1-SHOTS[j].d/2))/SHOTS[j].d;shotHi(j,t,M);hb.clearRect(0,0,W,H);shotHi(j+1,t,hb);M.globalAlpha=eIO(clamp(p));M.drawImage(HB,0,0);M.globalAlpha=1;}
   M.imageSmoothingEnabled=false;
+  const vg=M.createLinearGradient(0,H-300,0,H);vg.addColorStop(0,'rgba(8,5,16,0)');vg.addColorStop(1,'rgba(8,5,16,.32)');M.fillStyle=vg;M.fillRect(0,H-300,W,300);
   sb.clearRect(0,0,960,540);hud(t);subtitle(t);M.drawImage(SUB,0,0,W,H);
   const f=Math.max(clamp(1-(t-START)/0.4),clamp((t-END+0.9)/0.9));if(f>0){M.fillStyle=`rgba(0,0,0,${f})`;M.fillRect(0,0,W,H);}
 }
