@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/data2.js"></script>
+    <script src="assets/pixel-engine.js"></script>
+    <style>
+      @font-face { font-family: "LJBold"; src: url("assets/fonts/bold2.woff2") format("woff2"); font-weight: 700; }
+      html, body { width: 1920px; height: 1080px; margin: 0; overflow: hidden; background: #000; }
+      #pixel-root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      #pixel-canvas { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; }
+    </style>
+  </head>
+  <body>
+    <div id="pixel-root" data-composition-id="pixel" data-start="0" data-duration="30.7" data-width="1920" data-height="1080">
+      <!-- 像素画面:房间、人物、光影、一镜到底的运镜都在 assets/pixel-engine.js 里,按时间逐帧画 -->
+      <canvas id="pixel-canvas" width="1920" height="1080"></canvas>
+      <div id="pixel-drv" class="clip" data-start="0" data-duration="30.7" data-track-index="0"
+        style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></div>
+    </div>
+    <script>
+      (function () {
+        window.__timelines = window.__timelines || {};
+        var engine = window.PixelEngine.createEngine(document.getElementById("pixel-canvas"),
+          { LYRICS: window.LYRICS, BEATS: window.BEATS }, { subtitles: false });
+        var START = window.PixelEngine.START;
+        var tl = gsap.timeline({ paused: true });
+        tl.to({}, { duration: 30.7, ease: "none" }, 0);
+        window.__timelines["pixel"] = tl;
+        function draw() { engine.renderAt(START + tl.time()); }
+        tl.eventCallback("onUpdate", draw);
+        window.addEventListener("hf-seek", function () { draw(); });
+        draw();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+<template>
+  <div data-hf-id="hf-va73" id="root" data-composition-id="lyrics" data-duration="30.7" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-rpc2" class="ly-mask">
+      <div data-hf-id="hf-rkwq" id="ly0" class="ly-line clip" data-start="0.06" data-duration="4.03" data-track-index="0"><span data-hf-id="hf-bcdh" class="ly-inner">若爱是<span data-hf-id="hf-iq06" class="ly-ul-wrap">遗憾<span data-hf-id="hf-mmuz" id="ly0-ul" class="ly-ul"></span></span> 长大才合理</span></div>
+      <div data-hf-id="hf-ozmr" id="ly1" class="ly-line clip" data-start="3.69" data-duration="4.25" data-track-index="0"><span data-hf-id="hf-s8xb" class="ly-inner">代替没留下的<span data-hf-id="hf-0tp5" class="ly-ul-wrap">你<span data-hf-id="hf-pw50" id="ly1-ul" class="ly-ul"></span></span>陪自己</span></div>
+      <div data-hf-id="hf-v70c" id="ly2" class="ly-line clip" data-start="7.54" data-duration="3.86" data-track-index="0"><span data-hf-id="hf-fgwm" class="ly-inner">你的<span data-hf-id="hf-i90d" class="ly-ul-wrap">发香<span data-hf-id="hf-gzu5" id="ly2-ul" class="ly-ul"></span></span> 说爱我的气息</span></div>
+      <div data-hf-id="hf-z3sm" id="ly3" class="ly-line clip" data-start="11.0" data-duration="4.48" data-track-index="0"><span data-hf-id="hf-v0hh" class="ly-inner">我偶尔想<span data-hf-id="hf-nxbw" class="ly-ul-wrap">回味<span data-hf-id="hf-qjk6" id="ly3-ul" class="ly-ul"></span></span></span></div>
+      <div data-hf-id="hf-fvb0" id="ly4" class="ly-line clip" data-start="15.08" data-duration="4.36" data-track-index="0"><span data-hf-id="hf-zaku" class="ly-inner">若笑着<span data-hf-id="hf-bckk" class="ly-ul-wrap">流泪<span data-hf-id="hf-rc5j" id="ly4-ul" class="ly-ul"></span></span> 都未留住你</span></div>
+      <div data-hf-id="hf-ipl1" id="ly5" class="ly-line clip" data-start="19.04" data-duration="4.61" data-track-index="0"><span data-hf-id="hf-9u0a" class="ly-inner">便当是程序 存活是<span data-hf-id="hf-hr3j" class="ly-ul-wrap">有限期<span data-hf-id="hf-pmhc" id="ly5-ul" class="ly-ul"></span></span></span></div>
+      <div data-hf-id="hf-1co1" id="ly6" class="ly-line clip" data-start="23.25" data-duration="7.45" data-track-index="0"><span data-hf-id="hf-mre4" class="ly-inner">留下一些 <span data-hf-id="hf-vel3" class="ly-ul-wrap">碎片的我<span data-hf-id="hf-ejbd" id="ly6-ul" class="ly-ul"></span></span> 留念你</span></div>
+    </div>
+    <style>
+      @font-face { font-family: "LJBold"; src: url("assets/fonts/bold2.woff2") format("woff2"); font-weight: 700; }
+      #root { position: absolute; inset: 0; pointer-events: none; }
+      /* 歌词放在画面下方的遮罩里:上一句从遮罩里往上退出,下一句从下面顶上来(registry: line-swap) */
+      .ly-mask { position: absolute; left: 0; right: 0; bottom: 10%; height: 92px; overflow: hidden; }
+      .ly-line { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .ly-inner { display: inline; font-family: "LJBold", sans-serif; font-weight: 700; font-size: 58px; line-height: 1;
+        color: #fff6e6; letter-spacing: 0.04em; white-space: nowrap;
+        text-shadow: 0 3px 0 rgba(20, 12, 30, 0.9), 0 0 22px rgba(10, 6, 20, 0.45); }
+      .ly-ul-wrap { position: relative; display: inline-block; color: #ffd38a; }
+      .ly-ul { position: absolute; left: 0.04em; right: 0.04em; bottom: -0.16em; height: 0.07em; border-radius: 0.04em;
+        background: #ffc46b; box-shadow: 0 2px 0 rgba(20, 12, 30, 0.8); transform-origin: left center; display: block; }
+    </style>
+    <script>
+      (function () {
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#ly0", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 0.18);
+        tl.fromTo("#ly0-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 0.83);
+        tl.fromTo("#ly0", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 3.69);
+        tl.fromTo("#ly1", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 3.81);
+        tl.fromTo("#ly1-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 4.46);
+        tl.fromTo("#ly1", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 7.54);
+        tl.fromTo("#ly2", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 7.66);
+        tl.fromTo("#ly2-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 8.31);
+        tl.fromTo("#ly2", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 11.0);
+        tl.fromTo("#ly3", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 11.12);
+        tl.fromTo("#ly3-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 11.77);
+        tl.fromTo("#ly3", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 15.08);
+        tl.fromTo("#ly4", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 15.2);
+        tl.fromTo("#ly4-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 15.85);
+        tl.fromTo("#ly4", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 19.04);
+        tl.fromTo("#ly5", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 19.16);
+        tl.fromTo("#ly5-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 19.81);
+        tl.fromTo("#ly5", { yPercent: 0 }, { yPercent: -115, duration: 0.35, ease: "power2.in", immediateRender: false }, 23.25);
+        tl.fromTo("#ly6", { yPercent: 115 }, { yPercent: 0, duration: 0.5, ease: "power4.out" }, 23.37);
+        tl.fromTo("#ly6-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 24.02);
+        window.__timelines = window.__timelines || {};
+        window.__timelines["lyrics"] = tl;
+      })();
+    </script>
+  </div>
+</template>
