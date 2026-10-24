@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>被你改变的那部分我 · 3D 样片</title>
+<style>
+@font-face{font-family:'LJBold';src:url(fonts/bold2.woff2) format('woff2');font-weight:700}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+canvas{width:1920px;height:1080px;display:block;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+<audio id="au" src="song2.mp3" preload="auto"></audio>
+<script src="data2.js"></script>
+<script src="lib/three.min.js"></script>
+<script>
+(()=>{
+/* 《被你改变的那部分我》3D 样片(1:04.3–1:12.3):方块搭成的微缩房间。
+   她开门离开 → 镜头拉远看到整个房间,昼夜交替、植物长高 → 推到沙发上抱着小熊的他。
+   Three.js 画 3D,外面一张 2D 画布叠歌词;画面完全由时间决定,逐帧录制。 */
+const W=1920,H=1080,START=64.3,END=72.3;
+const out=document.getElementById('c'),O=out.getContext('2d');
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),lerp=(a,b,k)=>a+(b-a)*k;
+const sine=u=>-(Math.cos(Math.PI*u)-1)/2,cubic=u=>u<0.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2,expoOut=u=>u>=1?1:1-Math.pow(2,-10*u);
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const L0=k=>LYRICS[13+k].t;
+
+/* ---------- 渲染器 ---------- */
+const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+R.setSize(W,H,false);R.setPixelRatio(1);R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;
+R.outputEncoding=THREE.sRGBEncoding;R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.05;
+const S=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(35,W/H,0.5,400);
+const col=c=>new THREE.Color(c);
+const mats={};
+function mat(c,o={}){const k=c+JSON.stringify(o);return mats[k]||(mats[k]=new THREE.MeshStandardMaterial({color:col(c),roughness:o.r??0.85,metalness:0,emissive:col(o.e||'#000000'),emissiveIntensity:o.ei??1}));}
+const GEO=new THREE.BoxGeometry(1,1,1);
+// 方块:中心在 (x+w/2, y+h/2, z+d/2),也就是用左下后角来摆
+function box(par,x,y,z,w,h,d,c,o={}){const m=new THREE.Mesh(GEO,o.m||mat(c,o));m.scale.set(w,h,d);m.position.set(x+w/2,y+h/2,z+d/2);m.castShadow=o.cast!==false;m.receiveShadow=true;par.add(m);return m;}
+
+/* ---------- 房间(1 格 ≈ 10 厘米;地板 x -20..20,z -15..15,背墙在 z=-15,左墙在 x=-20) ---------- */
+const room=new THREE.Group();S.add(room);
+// 地板:一条条木板
+for(let i=0;i<10;i++)box(room,-20,-1,-15+i*3,40,1,2.9,i%2?'#8f6248':'#9a6b4f',{cast:false});
+box(room,-20,-1.6,-15,40,0.6,30,'#5a3d2e',{cast:false});
+// 背墙,中间开窗(x 4..16,y 9..21)
+const WALL='#dccab3',WAIN='#ad9177';
+box(room,-20,0,-16,24,26,1,WALL);box(room,16,0,-16,4,26,1,WALL);box(room,4,0,-16,12,9,1,WALL);box(room,4,21,-16,12,5,1,WALL);
+box(room,-20,0,-15.2,24,8,0.4,WAIN);box(room,16,0,-15.2,4,8,0.4,WAIN);box(room,4,0,-15.2,12,8,0.4,WAIN);
+box(room,-20,8,-15.3,40,0.5,0.6,'#8c7058');box(room,-20,0,-15.3,40,0.8,0.6,'#5f4334');
+// 窗框和窗台
+const WF='#f2ebe1';box(room,3.5,8.5,-16.3,13,0.5,1.6,WF);box(room,3.5,21,-16.3,13,0.5,1.4,WF);box(room,3.5,8.5,-16.3,0.5,13,1.4,WF);box(room,16,8.5,-16.3,0.5,13,1.4,WF);
+box(room,9.75,9,-16,0.5,12,0.6,WF);box(room,4,14.75,-16,12,0.5,0.6,WF);box(room,3,8.2,-15.2,14,0.5,1.6,'#f6efe6');
+// 窗帘和窗帘杆
+box(room,1,22.3,-14.8,18,0.4,0.4,'#5e4436');
+for(let k=0;k<4;k++){box(room,1+k*0.8,6,-14.6+((k%2)*0.3),0.8,16.3,0.6,k%2?'#c27a7e':'#d58b8e');box(room,15.8+k*0.8,6,-14.6+((k%2)*0.3),0.8,16.3,0.6,k%2?'#c27a7e':'#d58b8e');}
+// 左墙,开门(z -8..-2,高 16)
+box(room,-21,0,-16,1,26,8,WALL);box(room,-21,0,-2,1,26,17,WALL);box(room,-21,16,-8,1,10,6,WALL);
+box(room,-20.2,0,-15,0.4,8,7,WAIN);box(room,-20.2,0,-2,0.4,8,17,WAIN);
+box(room,-20.4,16,-8.5,0.8,0.6,7,'#6b4b3a');box(room,-20.4,0,-8.5,0.8,16.6,0.5,'#6b4b3a');box(room,-20.4,0,-2,0.8,16.6,0.5,'#6b4b3a');
+// 门:绕铰链(z=-8)转
+const doorPivot=new THREE.Group();doorPivot.position.set(-20.5,0,-8);room.add(doorPivot);
+box(doorPivot,-0.3,0,0,0.6,16,6,'#b98761');box(doorPivot,0.25,2,0.6,0.2,5,4.8,'#a87652');box(doorPivot,0.25,9,0.6,0.2,5.5,4.8,'#a87652');box(doorPivot,0.3,7.5,4.8,0.4,0.6,0.5,'#f2cf6a');
+// 门外走廊的暖光
+const hall=box(room,-24,0,-9,0.5,17,8,'#ffe1a8',{e:'#ffd38a',ei:0,cast:false});
+const hallLight=new THREE.PointLight(0xffd59a,0,40,1.6);hallLight.position.set(-23,10,-5);room.add(hallLight);
+// 日历、合照
+box(room,-20.1,11,0,0.3,3.2,2.6,'#f7f1ea');box(room,-20.15,13.4,0,0.35,0.8,2.6,'#d9605c');
+box(room,-5,13,-15.5,9,6,0.4,'#6b4b3a');const photo=box(room,-4.5,13.5,-15.3,8,5,0.3,'#fbe6c8');
+box(room,-3.5,14,-15.1,2,2.4,0.2,'#4b70a6');box(room,-3.4,16.4,-15.1,1.8,1.4,0.2,'#f6d2b4');box(room,0.6,14,-15.1,2,2.4,0.2,'#f2e5cd');box(room,0.6,16.4,-15.1,1.8,1.4,0.2,'#f6d2b4');box(room,0.4,16.8,-15.1,2.2,1,0.2,'#7d4838');
+// 沙发
+const SB='#5b7d92',SS='#6e90a6';
+box(room,-6,0.5,-14.5,16,8,2.5,SB);box(room,-6,0.5,-12,16,3.5,5,'#4f6f84');box(room,-5.5,4,-12.2,15,1.4,5,SS);
+box(room,-7.5,0.5,-14.5,2,6,7.5,SB);box(room,9.5,0.5,-14.5,2,6,7.5,SB);
+box(room,-6,0,-14,0.8,0.6,0.8,'#3a2a24');box(room,9,0,-14,0.8,0.6,0.8,'#3a2a24');
+// 地毯
+box(room,-8,0,-7,20,0.15,10,'#c4908f',{cast:false});box(room,-7,0.05,-6,18,0.15,8,'#d3a1a0',{cast:false});
+// 落地灯
+box(room,-11.3,0,-13,2.4,0.4,2.4,'#4e3e44');box(room,-10.3,0.4,-12,0.4,13,0.4,'#4e3e44');
+const shade=box(room,-11.8,13,-13.5,3.4,2.6,3.4,'#f3e3bd',{e:'#ffd98f',ei:0});
+const lampLight=new THREE.PointLight(0xffc77a,0,60,1.4);lampLight.position.set(-10.1,12.4,-11.8);room.add(lampLight);
+// 书架(左墙)
+box(room,-20,0,-14.5,3,15,6,'#7a5644');box(room,-19.6,0.5,-14.1,2.4,14,5.2,'#5c3f32');
+for(const y of[4,8,12])box(room,-19.6,y,-14.1,2.6,0.4,5.2,'#7a5644');
+const BK=['#5c86c4','#e0a85c','#7fb07a','#d9605c','#e9dcc6','#9d7fc2'];for(let s=0;s<3;s++)for(let k=0;k<5;k++)box(room,-19.4,0.5+s*4,-13.8+k*0.95,1.8,2.6+((k*7+s)%3)*0.4,0.9,BK[(k+s*2)%6]);
+// 绿植(窗边,会长高)
+box(room,17,0,-13,2.4,2.6,2.4,'#c97b55');const plant=new THREE.Group();plant.position.set(18.2,2.6,-11.8);room.add(plant);
+for(let k=0;k<9;k++){const a=k*2.4,r=0.4+(k%3)*0.35;box(plant,Math.cos(a)*r-0.6,k*0.9,Math.sin(a)*r-0.3,1.4,0.5,0.9,k%2?'#6aa35f':'#5b9150');}
+box(plant,-0.15,0,-0.15,0.3,8.5,0.3,'#4f7d4a');
+// 围巾(沙发扶手上)、小熊
+const scarf=box(room,7,4.6,-11.5,2.4,0.6,1.4,'#e86f8f');
+const bear=new THREE.Group();room.add(bear);
+box(bear,-1,0,-0.8,2,2.2,1.6,'#b07d55');box(bear,-1.1,2.2,-0.9,2.2,2,1.8,'#b07d55');box(bear,-1.1,4,-0.4,0.7,0.6,0.6,'#b07d55');box(bear,0.4,4,-0.4,0.7,0.6,0.6,'#b07d55');
+box(bear,-0.5,2.6,0.85,1,0.7,0.2,'#ecd2b0');box(bear,-0.7,3.4,0.9,0.3,0.3,0.1,'#2b1f2e');box(bear,0.4,3.4,0.9,0.3,0.3,0.1,'#2b1f2e');box(bear,-0.5,1.9,0.8,1,0.3,0.15,'#ff8fae');
+
+/* ---------- 窗外 ---------- */
+const skyMat=new THREE.MeshBasicMaterial({color:col('#f4a96b')});
+const sky=new THREE.Mesh(new THREE.PlaneGeometry(320,160),skyMat);sky.position.set(10,20,-95);S.add(sky);
+const city=new THREE.Group();S.add(city);const winLit=[];
+for(let k=0;k<14;k++){const h=14+((k*37)%9)*4,x=-10+k*5,w=4+(k%3);box(city,x,-12,-75-(k%3)*4,w,h,4,'#1b2246',{cast:false});
+  for(let j=0;j<5;j++)if((k*13+j*7)%3===0){const m=box(city,x+1+(j%2)*1.5,-9+j*2.6,-70.9-(k%3)*4,0.8,0.8,0.1,'#f2c872',{e:'#f2c872',ei:0,cast:false});winLit.push(m);}}
+// 雨:一根根细长方块
+const rainG=new THREE.Group();S.add(rainG);const rainM=new THREE.MeshBasicMaterial({color:col('#9fb4e0'),transparent:true,opacity:0.6});const drops=[];
+for(let k=0;k<160;k++){const m=new THREE.Mesh(GEO,rainM);m.scale.set(0.08,1.6,0.08);rainG.add(m);drops.push({m,x:-10+((k*73)%60),z:-20-((k*37)%22),s:28+(k%7)*3,o:(k*0.137)%1});}
+
+/* ---------- 小人(方块拼的 Q 版) ---------- */
+function person(kind){
+  const g=new THREE.Group(),girl=kind==='girl';S.add(g);
+  const top=girl?'#f2e5cd':'#4b70a6',leg=girl?'#4b3b52':'#3c3a54',shoe=girl?'#7a4a3a':'#efe9e2',hair=girl?'#7d4838':'#35293f',SK='#f6d2b4';
+  const hip=new THREE.Group();hip.position.y=5;g.add(hip);
+  const legs=[-1,1].map(s=>{const p=new THREE.Group();p.position.set(s*1.1,5,0);g.add(p);box(p,-0.8,-5,-0.8,1.6,5,1.6,leg);box(p,-0.9,-5,-0.9,1.8,0.8,2.2,shoe);return p;});
+  const body=new THREE.Group();body.position.y=5;g.add(body);
+  box(body,-2.3,0,-1.3,4.6,5,2.6,top);
+  if(girl){box(body,-2.8,-0.5,-1.6,5.6,2.6,3.2,'#cf8399');}
+  const arms=[-1,1].map(s=>{const p=new THREE.Group();p.position.set(s*3,4.6,0);body.add(p);box(p,-0.7,-4.4,-0.7,1.4,4.4,1.4,top);box(p,-0.7,-5.2,-0.7,1.4,0.8,1.4,SK);return p;});
+  const head=new THREE.Group();head.position.y=5;body.add(head);
+  box(head,-3,0,-3,6,6,6,SK);
+  box(head,-3.2,4,-3.2,6.4,2.6,6.4,hair);box(head,-3.2,1,-3.2,6.4,3.2,1.6,hair);
+  box(head,-3.2,1.6,-1.8,0.6,2.6,3.4,hair);box(head,2.6,1.6,-1.8,0.6,2.6,3.4,hair);
+  box(head,-3.1,3.8,2.6,6.2,0.9,0.7,hair);box(head,-3.1,3.4,2.6,1.6,0.5,0.7,hair);box(head,1.4,3.4,2.6,1.7,0.5,0.7,hair);
+  const eyes=[-1,1].map(s=>box(head,s*1.3-0.35,2.2,2.95,0.7,1,0.2,'#2b1f2e',{cast:false}));
+  box(head,-2.2,1.5,2.95,0.9,0.35,0.15,'#f2a0a2',{cast:false});box(head,1.3,1.5,2.95,0.9,0.35,0.15,'#f2a0a2',{cast:false});
+  const mouth=box(head,-0.4,1,2.95,0.8,0.25,0.15,'#a2485a',{cast:false});
+  if(girl){box(head,-3.3,-2.2,-3.3,6.6,3.4,2.4,hair);box(head,-3.4,-2,-1.5,0.8,3.6,3.4,hair);box(head,2.6,-2,-1.5,0.8,3.6,3.4,hair);box(head,1.8,4.4,2.9,0.9,0.9,0.4,'#ff8fae');
+    box(body,-2.6,4,-1.6,5.2,1.2,3.2,'#e86f8f');box(body,1,1.4,1.4,1.2,2.8,0.5,'#e86f8f');}
+  return{g,legs,arms,body,head,eyes,mouth,hip};
+}
+const boy=person('boy'),girl=person('girl');
+const suit=new THREE.Group();S.add(suit);box(suit,-1.3,0.4,-2,2.6,5.6,4,'#e7a86c');box(suit,-0.5,6,-0.8,1,0.6,1.6,'#5a4a46');box(suit,-1.35,2.4,-2.05,2.7,0.4,4.1,'#c98a52');
+function pose(p,o){ // o: x z rot walk(相位) sit reach blink
+  p.g.position.set(o.x,o.y||0,o.z);p.g.rotation.y=o.rot||0;
+  const w=o.walk??null,sw=w===null?0:Math.sin(w*Math.PI*2)*0.55;
+  p.legs[0].rotation.x=sw;p.legs[1].rotation.x=-sw;
+  p.arms[0].rotation.x=-sw*0.8;p.arms[1].rotation.x=sw*0.8;
+  p.g.position.y=(o.y||0)+(w===null?0:Math.abs(Math.sin(w*Math.PI*2))*0.3);
+  if(o.sit){p.legs[0].rotation.x=p.legs[1].rotation.x=-1.15;}
+  if(o.hug){p.arms[0].rotation.x=p.arms[1].rotation.x=-1.25;p.arms[0].rotation.z=0.5;p.arms[1].rotation.z=-0.5;}else{p.arms[0].rotation.z=p.arms[1].rotation.z=0;}
+  if(o.reach){p.arms[1].rotation.x=-1.4*o.reach;}
+  p.head.rotation.x=o.nod||0;p.head.rotation.y=o.look||0;
+  const bl=o.blink?0.15:1;p.eyes.forEach(e=>e.scale.y=bl);
+}
+
+/* ---------- 光 ---------- */
+const hemi=new THREE.HemisphereLight(0xffffff,0x6b5040,0.5);S.add(hemi);
+const amb=new THREE.AmbientLight(0xffffff,0.15);S.add(amb);
+const sun=new THREE.DirectionalLight(0xffb070,1.6);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:200});sun.shadow.bias=-0.0006;sun.shadow.normalBias=0.04;S.add(sun);S.add(sun.target);sun.target.position.set(0,0,0);
+
+/* ---------- 时间点 ---------- */
+const T={turn:64.95,reach0:65.0,reach1:65.45,door0:65.55,door1:65.85,out0:65.9,out1:66.75,close0:66.75,close1:67.05,lapse0:67.1,lapse1:68.9};
+// 天色:黄昏 / 白天 / 夜晚,各自的天空、太阳和环境光
+const MOOD={
+  dusk:{sky:'#f3a06b',sun:'#ffad66',si:2.2,sp:[10,16,-60],hemi:0.45,hc:'#ffe2c4',amb:0.12,lamp:0,city:0},
+  day:{sky:'#a9d6f2',sun:'#fff3dc',si:2.4,sp:[30,60,-50],hemi:0.75,hc:'#ffffff',amb:0.2,lamp:0,city:0},
+  night:{sky:'#141c44',sun:'#7f95d8',si:0.35,sp:[-20,50,-60],hemi:0.12,hc:'#9fb0ff',amb:0.06,lamp:1,city:1}};
+function moodAt(t){
+  if(t<T.lapse0)return[MOOD.dusk,MOOD.dusk,0];
+  // 延时:黄昏 → 夜 → 白天 → 夜,每段慢慢过渡
+  const seq=['dusk','night','day','night'],u=clamp((t-T.lapse0)/(T.lapse1-T.lapse0))*(seq.length-1),i=Math.min(seq.length-2,Math.floor(u));
+  return[MOOD[seq[i]],MOOD[seq[i+1]],sine(u-i)];}
+function applyMood(t){
+  const[a,b,k]=moodAt(t),L=(x,y)=>lerp(x,y,k),C=(x,y)=>col(x).lerp(col(y),k);
+  skyMat.color.copy(C(a.sky,b.sky));R.setClearColor(C(a.sky,b.sky));
+  sun.color.copy(C(a.sun,b.sun));sun.intensity=L(a.si,b.si);sun.position.set(L(a.sp[0],b.sp[0]),L(a.sp[1],b.sp[1]),L(a.sp[2],b.sp[2]));
+  hemi.intensity=L(a.hemi,b.hemi);hemi.color.copy(C(a.hc,b.hc));amb.intensity=L(a.amb,b.amb);
+  const lamp=L(a.lamp,b.lamp);lampLight.intensity=lamp*2.6;shade.material.emissiveIntensity=lamp*1.6;
+  const cl=L(a.city,b.city);winLit.forEach(m=>m.material.emissiveIntensity=cl*1.4);
+  return{night:L(a.city,b.city)};
+}
+
+/* ---------- 镜头:关键帧 [时间, 机位 xyz, 看向 xyz, 曲线] ---------- */
+const CK=[[START,[20,19,40],[-7,7,-4]],[66.6,[14,17,34],[-11,7,-5],sine],[67.05,[14,17,34],[-11,7,-5]],
+  [68.3,[44,38,46],[0,5,-4],cubic],[68.9,[44,38,46],[0,5,-4]],[70.2,[20,16,20],[1,7,-9],cubic],[END,[16,13.5,15],[1,7.5,-10],sine]];
+function camAt(t){let i=0;while(CK[i+1]&&CK[i+1][0]<=t)i++;const A=CK[i],B=CK[i+1]||A,k=B===A?0:(B[3]||cubic)(seg(t,A[0],B[0]));
+  const p=A[1].map((v,j)=>lerp(v,B[1][j],k)),q=A[2].map((v,j)=>lerp(v,B[2][j],k));
+  // 手持感:很慢的两个正弦
+  p[0]+=0.25*Math.sin(t*0.8)+0.12*Math.sin(t*1.9);p[1]+=0.15*Math.sin(t*1.1+1);
+  return{p,q};}
+
+/* ---------- 一帧 ---------- */
+const breath=t=>Math.sin(t*Math.PI*2*123/60/2)*0.08;
+function scene3d(t){
+  const st=applyMood(t);
+  // 门
+  const op=t<T.door0?0:t<T.door1?cubic(seg(t,T.door0,T.door1)):t<T.close0?1:t<T.close1?1-cubic(seg(t,T.close0,T.close1)):0;
+  doorPivot.rotation.y=-op*1.75;hall.material.emissiveIntensity=op*1.4;hallLight.intensity=op*3;
+  // 她:站在门边看着他 → 转身 → 拖着箱子走出门
+  const gp=seg(t,T.out0,T.out1),gx=t<T.out0?-12:lerp(-12,-27,cubic(gp)),gz=t<T.out0?-4.5:lerp(-4.5,-5,gp);
+  girl.g.visible=t<T.close1;suit.visible=girl.g.visible;
+  const grot=t<T.turn?Math.PI/2:t<T.out0?lerp(Math.PI/2,-Math.PI/2,cubic(seg(t,T.turn,T.turn+0.4))):-Math.PI/2;
+  pose(girl,{x:gx,z:gz,rot:grot,walk:t>=T.out0&&gp<1?(t-T.out0)*1.6:null,blink:((t+1)%3.1)<0.12,nod:0.12});
+  suit.position.set(gx+(t<T.turn?-3:3),0,gz+2.6);suit.rotation.y=0.2;
+  // 他
+  if(t<T.lapse0+0.6){const reach=t<T.reach0?0:t<T.reach1?expoOut(seg(t,T.reach0,T.reach1)):t<T.out1?1:Math.max(0,1-(t-T.out1)/0.4);
+    pose(boy,{x:5,z:-1,rot:-Math.PI/2+0.3,reach,blink:(t%3.1)<0.12,nod:0.1+breath(t)});boy.g.visible=true;}
+  else{pose(boy,{x:1.5,y:0.4,z:-9.6,rot:0,sit:true,hug:true,blink:(t%3.1)<0.12,nod:0.22+breath(t)});}
+  // 小熊:延时之后在他怀里
+  if(t<T.lapse0+0.6){bear.position.set(-3.5,5.4,-11);bear.rotation.y=0.3;}else{bear.position.set(1.5,5.9,-7.7);bear.rotation.y=0;}
+  // 植物长高
+  const pg=lerp(0.35,1,seg(t,T.lapse0,T.lapse1));plant.scale.set(1,pg,1);
+  // 雨(夜里)
+  rainG.visible=st.night>0.5&&t>T.lapse1-0.4;drops.forEach(d=>{const y=40-((t*d.s+d.o*60)%60);d.m.position.set(d.x,y,d.z);});
+  const c=camAt(t);cam.position.set(...c.p);cam.lookAt(...c.q);
+  R.render(S,cam);
+}
+
+/* ---------- 歌词:描边字,整句淡入上浮,唱到哪里亮成暖色 ---------- */
+function lyric(t){
+  for(let i=13;i<=14;i++){const t0=LYRICS[i].t,t1=i<14?LYRICS[i+1].t:END+1;if(t<t0-0.2||t>=t1)continue;
+    const str=LYRICS[i].s,a=Math.min(cubic(seg(t,t0-0.2,t0+0.2)),1-cubic(seg(t,t1-0.3,t1))),y=H-128-Math.round((1-a)*10);
+    O.save();O.globalAlpha=a;O.font='700 60px LJBold, sans-serif';O.textAlign='left';O.textBaseline='middle';
+    const w=O.measureText(str).width,x0=W/2-w/2,dur=Math.max(0.6,Math.min(t1-t0-0.6,str.replace(/ /g,'').length*0.3)),sw=x0+clamp((t-t0)/dur)*w;
+    O.lineJoin='round';O.lineWidth=9;O.strokeStyle='rgba(22,14,32,.88)';O.strokeText(str,x0,y);
+    O.fillStyle='#ece6f2';O.fillText(str,x0,y);
+    O.save();O.beginPath();O.rect(x0-10,y-50,sw-x0+10,100);O.clip();const gr=O.createLinearGradient(0,y-30,0,y+30);gr.addColorStop(0,'#fffaf0');gr.addColorStop(1,'#ffcf86');O.fillStyle=gr;O.fillText(str,x0,y);O.restore();
+    O.restore();}
+}
+function renderAt(t){
+  t=clamp(t,START,END);scene3d(t);
+  O.setTransform(1,0,0,1,0,0);O.drawImage(R.domElement,0,0);
+  const vg=O.createRadialGradient(W/2,H/2,H*0.42,W/2,H/2,H*1.05);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(10,6,20,.42)');O.fillStyle=vg;O.fillRect(0,0,W,H);
+  lyric(t);
+  const f=Math.max(clamp(1-(t-START)/0.4),clamp((t-END+0.6)/0.6));if(f>0){O.fillStyle=`rgba(0,0,0,${f})`;O.fillRect(0,0,W,H);}
+}
+window.renderAt=renderAt;
+
+const rec=/[?&]record/.test(location.search),stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);stage.style.transform=`translate(${-W*s/2}px,${-H*s/2}px) scale(${s})`;}
+addEventListener('resize',fit);fit();
+window.ready=document.fonts.load('700 60px LJBold').then(()=>document.fonts.ready).then(()=>{renderAt(START);return true;});
+if(rec){stage.style.transform='none';stage.style.left=stage.style.top='0';}
+else{
+  const au=document.getElementById('au');let raf=0;
+  const loop=()=>{const t=au.currentTime;if(t>=END){au.pause();renderAt(END);return;}renderAt(t);raf=requestAnimationFrame(loop);};
+  out.addEventListener('click',()=>{if(au.paused){if(au.currentTime<START||au.currentTime>=END)au.currentTime=START;au.play();loop();}else{au.pause();cancelAnimationFrame(raf);}});
+}
+})();
+</script>
+</body>
+</html>
