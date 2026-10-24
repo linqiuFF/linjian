@@ -101,6 +101,35 @@
         .btn-cancel { background: rgba(255,255,255,0.1); border: none; color: #ccc; padding: 8px 20px; border-radius: 25px; cursor: pointer; }
         .btn-delete { background: #ff5e5e; border: none; color: white; padding: 8px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
 
+        /* ✨ 动画：标题入场、落叶、萤火虫、卡片入场、发布爆心 */
+        header .forest-text, header .autumn-text { opacity: 0; }
+        body.entered header .forest-text { animation: riseIn 1.2s cubic-bezier(.2,.7,.2,1) 0.2s forwards; }
+        body.entered header .autumn-text { animation: riseIn 1.2s cubic-bezier(.2,.7,.2,1) 0.9s forwards, glow 3.5s ease-in-out 2.1s infinite; }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(18px); filter: blur(6px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+        @keyframes glow { 0%, 100% { text-shadow: 0 0 6px rgba(255,179,71,0.25); } 50% { text-shadow: 0 0 18px rgba(255,179,71,0.75), 0 0 32px rgba(255,133,161,0.35); } }
+
+        .leaf { position: absolute; top: -60px; animation: leafFall linear forwards; will-change: transform; }
+        .leaf span { display: inline-block; animation: leafSway ease-in-out infinite alternate; }
+        @keyframes leafFall { 0% { transform: translateY(0); opacity: 0; } 8% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translateY(115vh); opacity: 0; } }
+        @keyframes leafSway { from { transform: translateX(-40px) rotate(-35deg); } to { transform: translateX(40px) rotate(35deg); } }
+
+        .firefly { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff6b0; box-shadow: 0 0 8px 3px rgba(255,240,150,0.7); opacity: 0; animation: fireflyDrift ease-in-out infinite alternate, fireflyBlink ease-in-out infinite; }
+        @keyframes fireflyDrift { from { transform: translate(0, 0); } to { transform: translate(var(--dx), var(--dy)); } }
+        @keyframes fireflyBlink { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 0.9; } }
+
+        .diary-item.enter { animation: cardIn 0.7s cubic-bezier(.2,.8,.2,1) both; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(24px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+        .burst { position: fixed; pointer-events: none; z-index: 1200; font-size: 18px; animation: burstOut 1s ease-out forwards; }
+        @keyframes burstOut { from { transform: translate(-50%, -50%) scale(0.4); opacity: 1; } to { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1.1) rotate(var(--br)); opacity: 0; } }
+
+        #passcodeOverlay.leaving { opacity: 0; transform: scale(1.08); filter: blur(8px); }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+            .leaf, .firefly, .heart { display: none; }
+        }
+
         @media (max-width: 600px) { .input-section, #diary-list { width: 92%; } }
     </style>
 </head>
@@ -220,7 +249,7 @@
 
         // 🔴 暗号已在这里自动配置为 1204
         function validatePass(val) { const btn = document.getElementById('enterBtn'); if (val === '邱天' || val === '1204') btn.classList.add('visible'); else btn.classList.remove('visible'); }
-        function grantAccess() { document.getElementById('passcodeOverlay').style.opacity = '0'; setTimeout(() => { document.getElementById('passcodeOverlay').style.display = 'none'; startSite(); fetchDiaries(); }, 800); }
+        function grantAccess() { document.getElementById('passcodeOverlay').classList.add('leaving'); setTimeout(() => { document.getElementById('passcodeOverlay').style.display = 'none'; document.body.classList.add('entered'); startSite(); fetchDiaries(); }, 800); }
         function toggleMusic() { const m = document.getElementById('bgMusic'); m.muted = false; if (m.paused) { m.play(); document.getElementById('musicToggle').classList.add('playing'); } else { m.pause(); document.getElementById('musicToggle').classList.remove('playing'); } }
 
         async function fetchDiaries() { const { data } = await supabaseClient.from('ForestLog').select('*').order('created_at', { ascending: false }); if (data) { globalDiaries = data; renderDiaries(data); } }
@@ -272,7 +301,7 @@
                     <div class="edit-actions"><button class="btn-mini-cancel" onclick="cancelInlineEdit()">取消</button><button class="btn-mini-save" onclick="saveInlineEdit('${item.id}')">保存</button></div>
                 ` : `<div class="diary-text" style="${isLocked ? 'color:#555; font-style:italic;' : ''}">${isLocked ? `时光胶囊传送中...${timeTip}` : item.content}</div>`;
 
-                return `<div class="diary-item" style="border-left-color: ${moodColors[item.mood] || moodColors.gold} !important;">
+                return `<div class="diary-item" data-id="${item.id}" style="border-left-color: ${moodColors[item.mood] || moodColors.gold} !important;">
                     <div class="diary-header">
                         <div style="font-size:0.75rem; color:#8da399; display:flex; align-items:center;">${authorHtml}${new Date(item.created_at).toLocaleString('zh-CN')}</div>
                         <div class="actions"><button class="action-btn" onclick="toggleReplyBox('${item.id}')">💬</button><button class="action-btn" onclick="startInlineEdit('${item.id}')">✎</button><button class="action-btn" onclick="openConfirmModal('log', '${item.id}')">✕</button></div>
@@ -285,6 +314,7 @@
                     </div>
                 </div>`;
             }).join('');
+            animateNewCards(list);
             if(inlineEditingId) { const el = document.getElementById(`inline-editor-${inlineEditingId}`); if(el) autoResize(el); }
         }
 
@@ -361,6 +391,7 @@
                 
                 await supabaseClient.from('ForestLog').insert([payload]);
                 
+                burstHearts(btn);
                 document.getElementById('diaryInput').value = ''; 
                 selectedFiles = []; 
                 renderPreviews(); 
@@ -374,7 +405,62 @@
 
         function setMood(mood, btn) { currentMood = mood; document.querySelectorAll('.mood-btn').forEach(b => b.style.boxShadow = 'none'); btn.style.boxShadow = '0 0 8px white'; }
         function createHeart() { const container = document.getElementById('heart-container'); if (!container) return; const heart = document.createElementNS("http://www.w3.org/2000/svg", "svg"); heart.setAttribute("viewBox", "0 0 24 24"); heart.setAttribute("class", "heart"); const size = Math.random() * 15 + 25; heart.style.width = size + "px"; heart.style.left = Math.random() * 100 + "vw"; heart.style.animationDuration = (Math.random() * 4 + 6) + "s"; heart.style.fill = moodColors[currentMood]; heart.innerHTML = `<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>`; container.appendChild(heart); setTimeout(() => heart.remove(), 10000); }
-        function startSite() { setInterval(createHeart, 400); supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'ForestLog' }, fetchDiaries).subscribe(); }
+        const seenCardIds = new Set();
+        function animateNewCards(list) {
+            let n = 0;
+            list.querySelectorAll('.diary-item').forEach(card => {
+                const id = card.dataset.id;
+                if (seenCardIds.has(id)) return;
+                seenCardIds.add(id);
+                card.classList.add('enter');
+                card.style.animationDelay = Math.min(n++, 8) * 0.08 + 's';
+            });
+        }
+
+        function createLeaf() {
+            const container = document.getElementById('heart-container'); if (!container) return;
+            const leaf = document.createElement('div'); leaf.className = 'leaf';
+            const inner = document.createElement('span');
+            inner.textContent = ['🍁', '🍂', '🍁', '🌿'][Math.floor(Math.random() * 4)];
+            inner.style.fontSize = (Math.random() * 12 + 18) + 'px';
+            inner.style.animationDuration = (Math.random() * 1.5 + 2) + 's';
+            leaf.style.left = Math.random() * 100 + 'vw';
+            const dur = Math.random() * 6 + 9;
+            leaf.style.animationDuration = dur + 's';
+            leaf.appendChild(inner); container.appendChild(leaf);
+            setTimeout(() => leaf.remove(), dur * 1000);
+        }
+
+        function createFireflies(count) {
+            const container = document.getElementById('heart-container'); if (!container) return;
+            for (let i = 0; i < count; i++) {
+                const f = document.createElement('div'); f.className = 'firefly';
+                f.style.left = Math.random() * 100 + 'vw'; f.style.top = Math.random() * 100 + 'vh';
+                f.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
+                f.style.setProperty('--dy', (Math.random() * 160 - 80) + 'px');
+                f.style.animationDuration = (Math.random() * 6 + 6) + 's, ' + (Math.random() * 3 + 2) + 's';
+                f.style.animationDelay = '0s, ' + (Math.random() * 4) + 's';
+                container.appendChild(f);
+            }
+        }
+
+        function burstHearts(el) {
+            const r = el.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            for (let i = 0; i < 14; i++) {
+                const p = document.createElement('div'); p.className = 'burst';
+                p.textContent = i % 3 === 0 ? '🍁' : '❤';
+                p.style.color = moodColors[currentMood];
+                const a = (Math.PI * 2 * i) / 14, d = Math.random() * 60 + 60;
+                p.style.left = cx + 'px'; p.style.top = cy + 'px';
+                p.style.setProperty('--bx', Math.cos(a) * d + 'px');
+                p.style.setProperty('--by', Math.sin(a) * d + 'px');
+                p.style.setProperty('--br', (Math.random() * 360 - 180) + 'deg');
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+
+        function startSite() { setInterval(createHeart, 400); setInterval(createLeaf, 900); createFireflies(window.innerWidth < 600 ? 10 : 18); supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'ForestLog' }, fetchDiaries).subscribe(); }
     </script>
 </body>
 </html>
